@@ -23,7 +23,7 @@ const supabase = createClient(
 
 const PANEL_URL = "https://panel25.oyunyoneticisi.com/rank/index.php?ip=95.173.173.81";
 
-// STATİK DOSYALARI DIŞARI AÇ (bg.jpg ve index.html için)
+// STATİK DOSYALARI DIŞARI AÇ
 app.use(express.static(path.join(__dirname, 'public')));
 
 let isRunning = false;
@@ -48,17 +48,23 @@ async function startMonitoring() {
                 const kills = parseInt($(cols[2]).text()) || 0;
                 const hsRaw = $(cols[3]).text();
                 const deaths = parseInt($(cols[4]).text()) || 0;
+                const mermiler = parseInt($(cols[5]).text()) || 0; // YENİ: Mermi sayısı eklendi
                 const accRaw = $(cols[6]).text();
-                const hsPercent = parseFloat(hsRaw.match(/\(([^%]+)%/)?.[1]) || 0;
-                const accuracy = parseFloat(accRaw.match(/\(([^%]+)%/)?.[1]) || 0;
+                
+                // Yüzdelik verileri çekiyoruz
+                const hsPercent = hsRaw.match(/\(([^%]+)%/)?.[1] || "0";
+                const accuracy = accRaw.match(/\(([^%]+)%/)?.[1] || "0";
 
                 players.push({
                     nick,
                     total_kills: kills,
                     total_deaths: deaths,
+                    mermiler: mermiler,
                     hs_percent: hsPercent,
-                    accuracy,
-                    updated_at: new Date() // TZ ayarı sayesinde Türkiye saatiyle kaydedilir
+                    accuracy: accuracy,
+                    // TICKET'DAKİ KRİTER: Sıralama Kill - Death farkına göre yapılır
+                    score: kills - deaths, 
+                    updated_at: new Date()
                 });
                 currentTotalKills += kills;
             }
@@ -91,7 +97,12 @@ async function startMonitoring() {
 async function archiveTheWeek() {
     try {
         console.log("📁 Arşivleme işlemi başladı...");
-        const { data: top15 } = await supabase.from('players').select('*').order('total_kills', { ascending: false }).limit(15);
+        
+        // TICKET'DAKİ KRİTER: Sıralamayı artık 'score' (Kill-Death) üzerinden yapıyoruz
+        const { data: top15 } = await supabase.from('players')
+            .select('*')
+            .order('score', { ascending: false }) 
+            .limit(15);
         
         if (!top15 || top15.length === 0) return false;
 
@@ -110,6 +121,7 @@ async function archiveTheWeek() {
             nick: p.nick,
             kills: p.total_kills,
             deaths: p.total_deaths,
+            mermiler: p.mermiler,
             hs_percent: p.hs_percent,
             accuracy: p.accuracy
         }));
@@ -117,9 +129,9 @@ async function archiveTheWeek() {
         const { error: insertError } = await supabase.from('weekly_top15').insert(archiveRows);
         if (insertError) throw insertError;
 
-        // Arşivden sonra mevcut oyuncu tablosunu temizle (reset sonrası yeni hafta başlar)
+        // Arşivden sonra mevcut oyuncu tablosunu temizle
         await supabase.from('players').delete().neq('nick', '---');
-        console.log("📁 Arşiv başarıyla tamamlandı ve mühürlendi.");
+        console.log("📁 Arşiv başarıyla tamamlandı.");
         return true;
     } catch (err) {
         console.error("❌ Arşivleme Hatası:", err.message);
@@ -138,8 +150,4 @@ app.get('/', (req, res) => {
 app.listen(port, () => {
     console.log(`🚀 Sunucu ${port} portunda aktif`);
     startMonitoring();
-    
-    // 🔥 DİKKAT: Alttaki satır şu anki verileri direkt arşive basar. 
-    // Sitede podyumu gördükten sonra bu satırı silip tekrar kaydedin!
-    archiveTheWeek(); 
 });
