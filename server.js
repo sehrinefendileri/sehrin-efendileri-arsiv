@@ -6,6 +6,7 @@ import cron from 'node-cron';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import nodemailer from 'nodemailer';
 
 dotenv.config();
 
@@ -18,6 +19,35 @@ const port = process.env.PORT || 10000;
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 const PANEL_URL = "https://panel25.oyunyoneticisi.com/rank/index.php?ip=95.173.173.81";
+
+// 🛡️ GÜVENLİK: HOTMAIL ARIZA BİLDİRİM SİSTEMİ
+const transporter = nodemailer.createTransport({
+    host: "smtp.office365.com",
+    port: 587,
+    secure: false,
+    auth: {
+        user: "leventistemi@hotmail.com",
+        pass: process.env.EMAIL_PASS // Render panelindeki ojitndihybseodjg şifresi
+    },
+    tls: { ciphers: 'SSLv3' }
+});
+
+let lastMailTime = 0;
+const sendAlertMail = async (errorMsg) => {
+    const now = Date.now();
+    if (!process.env.EMAIL_PASS || now - lastMailTime < 3600000) return;
+
+    try {
+        await transporter.sendMail({
+            from: '"Şehrin Efendileri ARŞİV" <leventistemi@hotmail.com>',
+            to: "leventistemi@hotmail.com",
+            subject: "⚠️ ARŞİV SİSTEMİ ARIZA BİLDİRİMİ",
+            text: `Merhaba Levent,\n\nArşiv sisteminde kritik bir sorun algılandı.\n\nHata Detayı: ${errorMsg}\n\nZaman: ${new Date().toLocaleString("tr-TR")}`
+        });
+        lastMailTime = now;
+        console.log("📧 Arıza maili Hotmail üzerinden gönderildi.");
+    } catch (e) { console.error("📧 Mail gönderme hatası:", e.message); }
+};
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -32,6 +62,13 @@ async function startMonitoring() {
         const $ = cheerio.load(response.data);
         const table = $('table#table1');
         
+        // 🛡️ GÜVENLİK SENSÖRÜ: Panel Yapısı Kontrolü
+        const firstRowText = table.find('tr').first().text().toUpperCase();
+        if (table.length > 0 && (!firstRowText.includes('SIRA') || !firstRowText.includes('NICK') || !firstRowText.includes('ÖLDÜRME'))) {
+             throw new Error("KRİTİK: OyunYöneticisi panel sütun yerlerini değiştirmiş! Arşiv durduruldu.");
+        }
+
+        // Panel boşsa veya sadece başlık varsa (Reset anı)
         if (table.length === 0 || table.find('tr').length <= 1) {
             const { data: log } = await supabase.from('system_log').select('*').limit(1).maybeSingle();
             if (log && log.total_kills_sum > 500) await archiveTheWeek();
@@ -57,9 +94,13 @@ async function startMonitoring() {
             if (i === 0) return;
             const cols = $(el).find('td');
             if (cols.length > 5) {
-                const panelRank = parseInt($(cols[headers.rank]).text()) || i;
                 const nick = $(cols[headers.nick]).text().trim();
                 const kills = parseInt($(cols[headers.kills]).text()) || 0;
+                
+                // 🛡️ GÜVENLİK: İmkansız Veri Filtresi (Sanity Check)
+                if (!nick || kills < 0 || kills > 250000) return;
+
+                const panelRank = parseInt($(cols[headers.rank]).text()) || i;
                 const hsRaw = $(cols[headers.hs]).text();
                 const deaths = parseInt($(cols[headers.deaths]).text()) || 0;
                 const mermiler = parseInt($(cols[headers.bullets]).text()) || 0;
@@ -82,16 +123,24 @@ async function startMonitoring() {
             }
         });
 
+        // 🛡️ GÜVENLİK: Yetersiz Veri Kontrolü
+        if (players.length < 5 && currentTotalKills > 0) return;
+
+        // Reset Algılama (Eski toplam kill'in %20'sinin altına düşerse haftayı mühürle)
         const { data: log } = await supabase.from('system_log').select('*').limit(1).maybeSingle();
         if (log && log.total_kills_sum > 1000 && currentTotalKills < (log.total_kills_sum * 0.2)) {
             await archiveTheWeek();
         }
 
+        // Güncel verileri 'players' tablosuna yaz
         await supabase.from('players').upsert(players, { onConflict: 'nick' });
+        
+        // Log tablosunu güncelle
         await supabase.from('system_log').upsert({ id: 1, total_kills_sum: currentTotalKills, last_fetch: new Date() });
 
     } catch (error) {
         console.error("❌ Hata:", error.message);
+        if (error.message.includes("KRİTİK")) sendAlertMail(error.message);
     } finally {
         isRunning = false;
     }
@@ -109,7 +158,7 @@ async function archiveTheWeek() {
             startDate = new Date(lastArchive.week_end);
             startDate.setDate(startDate.getDate() + 1);
         } else {
-            startDate = new Date("2026-04-13"); 
+            startDate = new Date("2026-04-13"); // İlk başlangıç tarihi
         }
 
         let endDate = new Date(); 
@@ -130,9 +179,16 @@ async function archiveTheWeek() {
         await supabase.from('weekly_top15').insert(archiveRows);
         await supabase.from('players').delete().neq('nick', '---');
         await supabase.from('system_log').upsert({ id: 1, total_kills_sum: 0, last_fetch: new Date() });
+        console.log("✅ Hafta başarıyla mühürlendi ve arşive eklendi.");
     } catch (err) { console.error("❌ Arşiv Hatası:", err.message); }
 }
 
+// 3 dakikada bir paneli kontrol et
 cron.schedule('*/3 * * * *', startMonitoring);
+
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.listen(port, () => { startMonitoring(); });
+
+app.listen(port, () => { 
+    console.log(`🚀 Şehrin Efendileri Arşiv Sistemi ${port} portunda aktif.`); 
+    startMonitoring(); 
+});
