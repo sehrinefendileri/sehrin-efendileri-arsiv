@@ -7,51 +7,33 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
+import crypto from 'crypto'; // 🛡️ Yeni: week_id oluşturmak için
 
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 const app = express();
 const port = process.env.PORT || 10000;
-
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-
 const PANEL_URL = "https://panel25.oyunyoneticisi.com/rank/index.php?ip=95.173.173.81";
 
-// 🛡️ GÜVENLİK: HOTMAIL ARIZA BİLDİRİM SİSTEMİ
+// 🛡️ HOTMAIL BİLDİRİM
 const transporter = nodemailer.createTransport({
     host: "smtp.office365.com",
     port: 587,
     secure: false,
-    auth: {
-        user: "leventistemi@hotmail.com",
-        pass: process.env.EMAIL_PASS // Render panelindeki ojitndihybseodjg şifresi
-    },
+    auth: { user: "leventistemi@hotmail.com", pass: process.env.EMAIL_PASS },
     tls: { ciphers: 'SSLv3' }
 });
 
-let lastMailTime = 0;
-const sendAlertMail = async (errorMsg) => {
-    const now = Date.now();
-    if (!process.env.EMAIL_PASS || now - lastMailTime < 3600000) return;
-
-    try {
-        await transporter.sendMail({
-            from: '"Şehrin Efendileri ARŞİV" <leventistemi@hotmail.com>',
-            to: "leventistemi@hotmail.com",
-            subject: "⚠️ ARŞİV SİSTEMİ ARIZA BİLDİRİMİ",
-            text: `Merhaba Levent,\n\nArşiv sisteminde kritik bir sorun algılandı.\n\nHata Detayı: ${errorMsg}\n\nZaman: ${new Date().toLocaleString("tr-TR")}`
-        });
-        lastMailTime = now;
-        console.log("📧 Arıza maili Hotmail üzerinden gönderildi.");
-    } catch (e) { console.error("📧 Mail gönderme hatası:", e.message); }
-};
-
-app.use(express.static(path.join(__dirname, 'public')));
-
 let isRunning = false;
+
+// 🛡️ Yeni: Aynı haftayı mühürlemeyi engelleyen benzersiz ID üretici
+function generateWeekId(players) {
+    const raw = players.slice(0, 5).map(p => p.nick + p.total_kills).join('|');
+    return crypto.createHash('md5').update(raw).digest('hex');
+}
 
 async function startMonitoring() {
     if (isRunning) return;
@@ -62,16 +44,15 @@ async function startMonitoring() {
         const $ = cheerio.load(response.data);
         const table = $('table#table1');
         
-        // 🛡️ GÜVENLİK SENSÖRÜ: Panel Yapısı Kontrolü
+        // 🛡️ SÜTUN SENSÖRÜ
         const firstRowText = table.find('tr').first().text().toUpperCase();
-        if (table.length > 0 && (!firstRowText.includes('SIRA') || !firstRowText.includes('NICK') || !firstRowText.includes('ÖLDÜRME'))) {
-             throw new Error("KRİTİK: OyunYöneticisi panel sütun yerlerini değiştirmiş! Arşiv durduruldu.");
+        if (table.length > 0 && (!firstRowText.includes('SIRA') || !firstRowText.includes('NICK'))) {
+             throw new Error("KRİTİK: Panel yapısı değişmiş!");
         }
 
-        // Panel boşsa veya sadece başlık varsa (Reset anı)
         if (table.length === 0 || table.find('tr').length <= 1) {
             const { data: log } = await supabase.from('system_log').select('*').limit(1).maybeSingle();
-            if (log && log.total_kills_sum > 500) await archiveTheWeek();
+            if (log && log.total_kills_sum > 500) await archiveTheWeek([]);
             return;
         }
 
@@ -96,75 +77,59 @@ async function startMonitoring() {
             if (cols.length > 5) {
                 const nick = $(cols[headers.nick]).text().trim();
                 const kills = parseInt($(cols[headers.kills]).text()) || 0;
-                
-                // 🛡️ GÜVENLİK: İmkansız Veri Filtresi (Sanity Check)
-                if (!nick || kills < 0 || kills > 250000) return;
-
-                const panelRank = parseInt($(cols[headers.rank]).text()) || i;
-                const hsRaw = $(cols[headers.hs]).text();
-                const deaths = parseInt($(cols[headers.deaths]).text()) || 0;
-                const mermiler = parseInt($(cols[headers.bullets]).text()) || 0;
-                const accRaw = $(cols[headers.acc]).text();
-                
-                const hsPercent = hsRaw.match(/\(([^%]+)%/)?.[1] || "0";
-                const accuracy = accRaw.match(/\(([^%]+)%/)?.[1] || "0";
+                if (!nick || kills < 0) return;
 
                 players.push({
-                    rank: panelRank,
+                    rank: parseInt($(cols[headers.rank]).text()) || i,
                     nick,
                     total_kills: kills,
-                    total_deaths: deaths,
-                    mermiler,
-                    hs_percent: hsPercent,
-                    accuracy,
+                    total_deaths: parseInt($(cols[headers.deaths]).text()) || 0,
+                    mermiler: parseInt($(cols[headers.bullets]).text()) || 0,
+                    hs_percent: $(cols[headers.hs]).text().match(/\(([^%]+)%/)?.[1] || "0",
+                    accuracy: $(cols[headers.acc]).text().match(/\(([^%]+)%/)?.[1] || "0",
                     updated_at: new Date()
                 });
                 currentTotalKills += kills;
             }
         });
 
-        // 🛡️ GÜVENLİK: Yetersiz Veri Kontrolü
-        if (players.length < 5 && currentTotalKills > 0) return;
-
-        // Reset Algılama (Eski toplam kill'in %20'sinin altına düşerse haftayı mühürle)
         const { data: log } = await supabase.from('system_log').select('*').limit(1).maybeSingle();
-        if (log && log.total_kills_sum > 1000 && currentTotalKills < (log.total_kills_sum * 0.2)) {
-            await archiveTheWeek();
+        
+        // 🔥 RESET TESPİTİ VE ARŞİVLEME
+        if (log && log.total_kills_sum > 1000 && currentTotalKills < (log.total_kills_sum * 0.35)) {
+            await archiveTheWeek(players); // Veriyi gönderiyoruz
         }
 
-        // Güncel verileri 'players' tablosuna yaz
         await supabase.from('players').upsert(players, { onConflict: 'nick' });
-        
-        // Log tablosunu güncelle
         await supabase.from('system_log').upsert({ id: 1, total_kills_sum: currentTotalKills, last_fetch: new Date() });
 
     } catch (error) {
-        console.error("❌ Hata:", error.message);
-        if (error.message.includes("KRİTİK")) sendAlertMail(error.message);
-    } finally {
-        isRunning = false;
-    }
+        console.error("❌", error.message);
+    } finally { isRunning = false; }
 }
 
-async function archiveTheWeek() {
+async function archiveTheWeek(currentPlayers) {
     try {
+        // Arşivlenecek veriyi 'players' tablosundan çek (En son temiz veri)
         const { data: top15 } = await supabase.from('players').select('*').order('rank', { ascending: true }).limit(15);
         if (!top15 || top15.length < 5) return;
 
+        const weekId = generateWeekId(top15);
+
+        // 🛡️ DUPLICATE KONTROLÜ
+        const { data: exists } = await supabase.from('weekly_top15').select('week_id').eq('week_id', weekId).limit(1);
+        if (exists && exists.length > 0) return;
+
         const { data: lastArchive } = await supabase.from('weekly_top15').select('week_end').order('week_end', { ascending: false }).limit(1).maybeSingle();
         
-        let startDate = new Date();
-        if (lastArchive) {
-            startDate = new Date(lastArchive.week_end);
-            startDate.setDate(startDate.getDate() + 1);
-        } else {
-            startDate = new Date("2026-04-13"); // İlk başlangıç tarihi
-        }
+        let startDate = lastArchive ? new Date(lastArchive.week_end) : new Date("2026-04-13");
+        if (lastArchive) startDate.setDate(startDate.getDate() + 1);
 
-        let endDate = new Date(); 
-        endDate.setDate(endDate.getDate() - 1); 
+        let endDate = new Date();
+        endDate.setDate(endDate.getDate() - 1);
 
-        const archiveRows = top15.map((p) => ({
+        const archiveRows = top15.map(p => ({
+            week_id: weekId, // 🛡️ Benzersiz hafta ID
             week_start: startDate.toISOString().split('T')[0],
             week_end: endDate.toISOString().split('T')[0],
             rank: p.rank,
@@ -176,19 +141,15 @@ async function archiveTheWeek() {
             accuracy: p.accuracy
         }));
 
-        await supabase.from('weekly_top15').insert(archiveRows);
-        await supabase.from('players').delete().neq('nick', '---');
-        await supabase.from('system_log').upsert({ id: 1, total_kills_sum: 0, last_fetch: new Date() });
-        console.log("✅ Hafta başarıyla mühürlendi ve arşive eklendi.");
-    } catch (err) { console.error("❌ Arşiv Hatası:", err.message); }
+        const { error } = await supabase.from('weekly_top15').insert(archiveRows);
+        if (!error) {
+            await supabase.from('players').delete().neq('nick', '---');
+            await supabase.from('system_log').upsert({ id: 1, total_kills_sum: 0 });
+            console.log("✅ Hafta Mühürlendi!");
+        }
+    } catch (err) { console.error("Arşiv Hatası:", err.message); }
 }
 
-// 3 dakikada bir paneli kontrol et
 cron.schedule('*/3 * * * *', startMonitoring);
-
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-
-app.listen(port, () => { 
-    console.log(`🚀 Şehrin Efendileri Arşiv Sistemi ${port} portunda aktif.`); 
-    startMonitoring(); 
-});
+app.listen(port, () => startMonitoring());
