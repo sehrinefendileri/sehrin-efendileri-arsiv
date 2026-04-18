@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Şehrin Efendileri | Haftalık Arşiv</title>
+    
     <link rel="icon" type="image/png" href="bg.jpg">
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body {
@@ -16,7 +18,7 @@
         }
 
         .overlay {
-            background-color: rgba(0, 0, 0, 0.7);
+            background-color: rgba(0, 0, 0, 0.75);
             min-height: 100vh; width: 100%;
             display: flex; flex-direction: column; align-items: center;
             padding: 40px 0;
@@ -31,11 +33,10 @@
             padding: 30px; margin-bottom: 25px;
         }
 
-        /* Başlıklar Büyütüldü */
-        .header h1 { color: #d4af37; text-transform: uppercase; letter-spacing: 5px; margin: 0; font-size: 2.8em; text-shadow: 2px 2px 10px rgba(0,0,0,1); }
+        /* Başlıklar ve Filtreler */
+        .header h1 { color: #d4af37; text-transform: uppercase; letter-spacing: 5px; margin: 0; font-size: 3em; text-shadow: 2px 2px 10px rgba(0,0,0,1); }
         .header p { color: #eee; margin: 15px 0; font-size: 1.2em; font-weight: 300; }
 
-        /* Filtre Alanı Büyütüldü */
         .filters { display: flex; justify-content: center; gap: 20px; margin-top: 25px; }
         .filter-group { display: flex; flex-direction: column; align-items: center; }
         .filter-group label { color: #d4af37; font-size: 1em; margin-bottom: 8px; font-weight: bold; letter-spacing: 1px; }
@@ -49,10 +50,10 @@
             cursor: pointer;
             font-size: 1.1em;
             font-weight: bold;
-            min-width: 150px;
+            min-width: 160px;
         }
 
-        /* Podyum Kartları Küçültüldü ve Kibarlaştırıldı */
+        /* Zarif Podyum Alanı */
         .podium {
             display: flex; justify-content: center; align-items: flex-end;
             gap: 15px; margin: 20px 0 40px 0; height: 180px; 
@@ -64,24 +65,23 @@
             padding: 10px; font-weight: bold; color: #000;
         }
 
-        .first { background: linear-gradient(#d4af37, #f9e272); height: 100%; order: 2; box-shadow: 0 0 15px rgba(212, 175, 55, 0.5); }
+        .first { background: linear-gradient(#d4af37, #f9e272); height: 100%; order: 2; box-shadow: 0 0 20px rgba(212, 175, 55, 0.5); }
         .second { background: linear-gradient(#c0c0c0, #eee); height: 80%; order: 1; }
         .third { background: linear-gradient(#cd7f32, #f5af64); height: 65%; order: 3; }
 
-        .p-rank { font-size: 1.8em; }
+        .p-rank { font-size: 1.8em; opacity: 0.8; }
         .p-nick { font-size: 0.85em; margin: 5px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .p-kills { font-size: 1em; background: rgba(0,0,0,0.1); border-radius: 4px; }
+        .p-kills { font-size: 1.1em; background: rgba(0,0,0,0.1); border-radius: 4px; padding: 2px 5px; }
 
-        /* Tablo Stili */
+        /* Oyun Yöneticisi Tarzı Tablo */
         .ranking-table { width: 100%; border-collapse: collapse; background: rgba(0, 0, 0, 0.8); }
-        .ranking-table th { background: #d4af37; color: #000; padding: 15px; font-size: 1em; }
-        .ranking-table td { padding: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); text-align: center; font-size: 1em; }
+        .ranking-table th { background: #d4af37; color: #000; padding: 15px; font-size: 1em; text-transform: uppercase; }
+        .ranking-table td { padding: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); text-align: center; font-size: 1.05em; }
         .highlight { background: rgba(212, 175, 55, 0.15) !important; font-weight: bold; }
         tr:nth-child(even) { background: rgba(255,255,255,0.03); }
 
         @media (max-width: 768px) {
             .header h1 { font-size: 1.8em; }
-            .header p { font-size: 1em; }
             .filters { flex-direction: column; gap: 10px; }
             select { width: 100%; }
             .podium { height: 150px; }
@@ -93,6 +93,7 @@
 
 <div class="overlay">
     <div class="container">
+        
         <div class="glass-panel">
             <div class="header">
                 <h1>HAFTALIK ARŞİV</h1>
@@ -117,7 +118,7 @@
 
         <div id="podiumArea" class="podium"></div>
 
-        <div class="glass-panel" style="padding: 0; overflow-x: auto; border: none;">
+        <div class="glass-panel" style="padding: 0; overflow-x: auto; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
             <table class="ranking-table">
                 <thead>
                     <tr>
@@ -127,16 +128,18 @@
                         <th>HEADSHOT</th>
                         <th>ÖLÜMLER</th>
                         <th>MERMİLER</th>
-                        <th>İSABET %</th>
+                        <th>HEDEF TUTTURMA</th>
                     </tr>
                 </thead>
                 <tbody id="rB"></tbody>
             </table>
         </div>
+
     </div>
 </div>
 
 <script>
+    // SUPABASE CONFIG
     const S_URL = "https://cyeklyjeszniowopawpc.supabase.co";
     const S_KEY = "sb_publishable_RUhk34F8aZiNcgIDIZAwCA_8ZATrGh0";
     const _c = supabase.createClient(S_URL, S_KEY);
@@ -146,6 +149,7 @@
 
     function fD(s) { const [y, m, d] = s.split('-'); return `${d}.${m}.${y}`; }
 
+    // BAŞLANGIÇ: Tarihleri yükle
     async function init() {
         const { data, error } = await _c.from('weekly_top15').select('week_start, week_end').order('week_end', { ascending: false });
         if (error || !data || data.length === 0) return;
@@ -166,6 +170,7 @@
         });
     }
 
+    // AY FİLTRESİ GÜNCELLE
     function upM() {
         const y = document.getElementById('yS').value;
         const mS = document.getElementById('mS');
@@ -183,6 +188,7 @@
         mS.disabled = false;
     }
 
+    // HAFTA FİLTRESİ GÜNCELLE
     function upW() {
         const y = document.getElementById('yS').value;
         const m = document.getElementById('mS').value;
@@ -198,26 +204,44 @@
         wS.disabled = false;
     }
 
+    // VERİYİ ÇEK VE GÖSTER (SIRALAMA KİLİTLİ)
     async function loadD(s) {
         if(!s) return;
-        const { data } = await _c.from('weekly_top15').select('*').eq('week_start', s).order('rank', { ascending: true });
+        
+        // KRİTİK: Sıralamayı sadece panelin verdiği 'rank' numarasına göre yapıyoruz
+        const { data } = await _c.from('weekly_top15')
+            .select('*')
+            .eq('week_start', s)
+            .order('rank', { ascending: true }); 
+
         if (data) {
+            // Podyum Oluştur (Paneldeki 1, 2 ve 3 numaralı oyuncular)
             const pA = document.getElementById('podiumArea');
             pA.innerHTML = '';
-            const order = [{ i: 1, c: 'second' }, { i: 0, c: 'first' }, { i: 2, c: 'third' }];
-            order.forEach(it => {
-                const p = data[it.i];
-                if (!p) return;
-                pA.innerHTML += `<div class="podium-card ${it.c}">
-                    <div class="p-rank">#${p.rank}</div>
-                    <div class="p-nick">${p.nick}</div>
-                    <div class="p-kills">${p.kills} K</div>
-                </div>`;
+            
+            // Podyum dizilimi: 2. Sola, 1. Ortaya, 3. Sağa
+            const podiumOrder = [
+                { rank: 2, class: 'second' },
+                { rank: 1, class: 'first' },
+                { rank: 3, class: 'third' }
+            ];
+
+            podiumOrder.forEach(it => {
+                const player = data.find(p => p.rank === it.rank);
+                if (player) {
+                    pA.innerHTML += `
+                    <div class="podium-card ${it.class}">
+                        <div class="p-rank">#${player.rank}</div>
+                        <div class="p-nick" title="${player.nick}">${player.nick}</div>
+                        <div class="p-kills">${player.kills} K</div>
+                    </div>`;
+                }
             });
 
+            // Tabloyu Oluştur (1-15 Tam Liste)
             document.getElementById('rB').innerHTML = data.map(p => `
                 <tr class="${p.rank <= 3 ? 'highlight' : ''}">
-                    <td>${p.rank}</td>
+                    <td><strong>${p.rank}</strong></td>
                     <td>${p.nick}</td>
                     <td>${p.kills}</td>
                     <td>%${p.hs_percent}</td>
