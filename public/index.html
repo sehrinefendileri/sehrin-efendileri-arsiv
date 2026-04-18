@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Şehrin Efendileri | Haftalık Arşiv</title>
-    
     <link rel="icon" type="image/png" href="bg.jpg">
-
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body {
@@ -35,25 +33,21 @@
 
         /* Başlıklar ve Filtreler */
         .header h1 { color: #d4af37; text-transform: uppercase; letter-spacing: 5px; margin: 0; font-size: 3em; text-shadow: 2px 2px 10px rgba(0,0,0,1); }
-        .header p { color: #eee; margin: 15px 0; font-size: 1.2em; font-weight: 300; }
+        .header p { color: #eee; margin: 15px auto; font-size: 1.1em; font-weight: 300; max-width: 800px; line-height: 1.6; }
 
         .filters { display: flex; justify-content: center; gap: 20px; margin-top: 25px; }
         .filter-group { display: flex; flex-direction: column; align-items: center; }
-        .filter-group label { color: #d4af37; font-size: 1em; margin-bottom: 8px; font-weight: bold; letter-spacing: 1px; }
+        .filter-group label { color: #d4af37; font-size: 0.9em; margin-bottom: 8px; font-weight: bold; letter-spacing: 1px; }
         
         select {
-            padding: 12px 20px;
-            background: #000;
-            color: #d4af37;
-            border: 2px solid #d4af37;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1.1em;
-            font-weight: bold;
-            min-width: 160px;
+            padding: 12px 20px; background: #000; color: #d4af37;
+            border: 2px solid #d4af37; border-radius: 8px; cursor: pointer;
+            font-size: 1.1em; font-weight: bold; min-width: 160px;
         }
 
-        /* Zarif Podyum Alanı */
+        /* Podyum Alanı (Başta Gizli) */
+        #dataArea { display: none; width: 100%; animation: fadeIn 0.8s ease-in-out; }
+
         .podium {
             display: flex; justify-content: center; align-items: flex-end;
             gap: 15px; margin: 20px 0 40px 0; height: 180px; 
@@ -73,19 +67,18 @@
         .p-nick { font-size: 0.85em; margin: 5px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .p-kills { font-size: 1.1em; background: rgba(0,0,0,0.1); border-radius: 4px; padding: 2px 5px; }
 
-        /* Oyun Yöneticisi Tarzı Tablo */
+        /* Tablo */
         .ranking-table { width: 100%; border-collapse: collapse; background: rgba(0, 0, 0, 0.8); }
-        .ranking-table th { background: #d4af37; color: #000; padding: 15px; font-size: 1em; text-transform: uppercase; }
+        .ranking-table th { background: #d4af37; color: #000; padding: 15px; font-size: 0.95em; text-transform: uppercase; }
         .ranking-table td { padding: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); text-align: center; font-size: 1.05em; }
         .highlight { background: rgba(212, 175, 55, 0.15) !important; font-weight: bold; }
-        tr:nth-child(even) { background: rgba(255,255,255,0.03); }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
         @media (max-width: 768px) {
             .header h1 { font-size: 1.8em; }
             .filters { flex-direction: column; gap: 10px; }
             select { width: 100%; }
-            .podium { height: 150px; }
-            .podium-card { width: 30%; }
         }
     </style>
 </head>
@@ -97,7 +90,7 @@
         <div class="glass-panel">
             <div class="header">
                 <h1>HAFTALIK ARŞİV</h1>
-                <p>Şehrin Efendileri Sunucusu Geçmiş Haftalar Podyumu</p>
+                <p>Bu sayfada geçmiş haftalara ait Top 15 listeleri yer alır. Aşağıdan tarih aralığı seçerek verilere ulaşabilirsiniz.</p>
             </div>
 
             <div class="filters">
@@ -116,30 +109,31 @@
             </div>
         </div>
 
-        <div id="podiumArea" class="podium"></div>
+        <div id="dataArea">
+            <div id="podiumArea" class="podium"></div>
 
-        <div class="glass-panel" style="padding: 0; overflow-x: auto; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-            <table class="ranking-table">
-                <thead>
-                    <tr>
-                        <th>SIRA</th>
-                        <th>NICK</th>
-                        <th>ÖLDÜRME</th>
-                        <th>HEADSHOT</th>
-                        <th>ÖLÜMLER</th>
-                        <th>MERMİLER</th>
-                        <th>HEDEF TUTTURMA</th>
-                    </tr>
-                </thead>
-                <tbody id="rB"></tbody>
-            </table>
+            <div class="glass-panel" style="padding: 0; overflow-x: auto; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <table class="ranking-table">
+                    <thead>
+                        <tr>
+                            <th>SIRA</th>
+                            <th>NICK</th>
+                            <th>ÖLDÜRME</th>
+                            <th>HEADSHOT</th>
+                            <th>ÖLÜMLER</th>
+                            <th>MERMİLER</th>
+                            <th>HEDEF TUTTURMA</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rB"></tbody>
+                </table>
+            </div>
         </div>
 
     </div>
 </div>
 
 <script>
-    // SUPABASE CONFIG
     const S_URL = "https://cyeklyjeszniowopawpc.supabase.co";
     const S_KEY = "sb_publishable_RUhk34F8aZiNcgIDIZAwCA_8ZATrGh0";
     const _c = supabase.createClient(S_URL, S_KEY);
@@ -149,7 +143,6 @@
 
     function fD(s) { const [y, m, d] = s.split('-'); return `${d}.${m}.${y}`; }
 
-    // BAŞLANGIÇ: Tarihleri yükle
     async function init() {
         const { data, error } = await _c.from('weekly_top15').select('week_start, week_end').order('week_end', { ascending: false });
         if (error || !data || data.length === 0) return;
@@ -170,14 +163,15 @@
         });
     }
 
-    // AY FİLTRESİ GÜNCELLE
     function upM() {
         const y = document.getElementById('yS').value;
         const mS = document.getElementById('mS');
         const wS = document.getElementById('wS');
+        const dA = document.getElementById('dataArea');
         mS.innerHTML = '<option value="">Seçiniz</option>';
         wS.innerHTML = '<option value="">Seçiniz</option>';
         wS.disabled = true;
+        dA.style.display = 'none';
 
         if (!y) { mS.disabled = true; return; }
 
@@ -188,12 +182,13 @@
         mS.disabled = false;
     }
 
-    // HAFTA FİLTRESİ GÜNCELLE
     function upW() {
         const y = document.getElementById('yS').value;
         const m = document.getElementById('mS').value;
         const wS = document.getElementById('wS');
+        const dA = document.getElementById('dataArea');
         wS.innerHTML = '<option value="">Seçiniz</option>';
+        dA.style.display = 'none';
 
         if (m === "") { wS.disabled = true; return; }
 
@@ -204,27 +199,20 @@
         wS.disabled = false;
     }
 
-    // VERİYİ ÇEK VE GÖSTER (SIRALAMA KİLİTLİ)
     async function loadD(s) {
-        if(!s) return;
+        if(!s) { document.getElementById('dataArea').style.display = 'none'; return; }
         
-        // KRİTİK: Sıralamayı sadece panelin verdiği 'rank' numarasına göre yapıyoruz
         const { data } = await _c.from('weekly_top15')
             .select('*')
             .eq('week_start', s)
             .order('rank', { ascending: true }); 
 
         if (data) {
-            // Podyum Oluştur (Paneldeki 1, 2 ve 3 numaralı oyuncular)
+            document.getElementById('dataArea').style.display = 'block';
             const pA = document.getElementById('podiumArea');
             pA.innerHTML = '';
             
-            // Podyum dizilimi: 2. Sola, 1. Ortaya, 3. Sağa
-            const podiumOrder = [
-                { rank: 2, class: 'second' },
-                { rank: 1, class: 'first' },
-                { rank: 3, class: 'third' }
-            ];
+            const podiumOrder = [{ rank: 2, class: 'second' }, { rank: 1, class: 'first' }, { rank: 3, class: 'third' }];
 
             podiumOrder.forEach(it => {
                 const player = data.find(p => p.rank === it.rank);
@@ -238,7 +226,6 @@
                 }
             });
 
-            // Tabloyu Oluştur (1-15 Tam Liste)
             document.getElementById('rB').innerHTML = data.map(p => `
                 <tr class="${p.rank <= 3 ? 'highlight' : ''}">
                     <td><strong>${p.rank}</strong></td>
