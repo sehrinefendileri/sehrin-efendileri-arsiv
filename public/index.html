@@ -4,56 +4,87 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Şehrin Efendileri | Haftalık Arşiv</title>
+    
+    <link rel="icon" type="image/png" href="bg.jpg">
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 0;
             background-image: url('bg.jpg');
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
             color: #f0f0f0;
-            display: flex;
-            justify-content: center;
             min-height: 100vh;
         }
 
+        /* Sayfayı karartan ve cam efektini öne çıkaran katman */
+        .overlay {
+            background-color: rgba(0, 0, 0, 0.75);
+            min-height: 100vh;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            padding: 40px 0;
+        }
+
         .container {
-            background-color: rgba(0, 0, 0, 0.85);
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
             width: 95%;
-            max-width: 1000px;
+            max-width: 1100px;
             text-align: center;
         }
 
-        .header h1 { color: #d4af37; text-transform: uppercase; letter-spacing: 3px; margin: 0; font-size: 2.5em; }
-        .header p { color: #aaa; margin-bottom: 30px; }
+        /* Cam Paneller (Glassmorphism) */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
 
+        .header h1 { color: #d4af37; text-transform: uppercase; letter-spacing: 3px; margin: 0; font-size: 2.5em; }
+        .header p { color: #bbb; margin: 15px 0; line-height: 1.6; }
+
+        /* Filtreleme Alanı */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        .filter-group { display: flex; flex-direction: column; align-items: center; }
+        .filter-group label { color: #d4af37; font-size: 0.8em; margin-bottom: 5px; text-transform: uppercase; }
+        
         .controls select {
-            padding: 12px 20px;
+            padding: 10px 15px;
             border-radius: 8px;
-            background: #222;
+            background: #111;
             color: gold;
             border: 1px solid #d4af37;
             cursor: pointer;
-            margin-bottom: 30px;
+            min-width: 120px;
         }
+        .controls select:disabled { border-color: #444; color: #666; cursor: not-allowed; }
 
         .top-podium {
             display: flex;
             justify-content: center;
             align-items: flex-end;
             gap: 15px;
-            margin-bottom: 50px;
+            margin: 60px 0;
             height: 320px;
         }
 
         .podium-item {
-            width: 180px;
+            width: 200px;
             border-radius: 10px 10px 0 0;
             display: flex;
             flex-direction: column;
@@ -64,157 +95,222 @@
             transition: transform 0.3s;
         }
 
-        .first { background: linear-gradient(#d4af37, #f9e272); height: 100%; order: 2; transform: scale(1.1); box-shadow: 0 0 20px rgba(212, 175, 55, 0.5); }
+        .first { background: linear-gradient(#d4af37, #f9e272); height: 100%; order: 2; transform: scale(1.1); box-shadow: 0 0 30px rgba(212, 175, 55, 0.4); }
         .second { background: linear-gradient(#aaa, #eee); height: 80%; order: 1; }
         .third { background: linear-gradient(#cd7f32, #f5af64); height: 65%; order: 3; }
 
-        .ranking-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        .ranking-table th { color: #d4af37; padding: 15px; border-bottom: 2px solid #d4af37; text-align: center; }
-        .ranking-table td { padding: 12px; border-bottom: 1px solid #333; text-align: center; }
+        .ranking-table { width: 100%; border-collapse: collapse; }
+        .ranking-table th { background: rgba(212, 175, 55, 0.8); color: #000; padding: 15px; text-align: center; font-size: 0.9em; }
+        .ranking-table td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); text-align: center; }
+        .ranking-table tr:hover { background: rgba(255,255,255,0.05); }
 
         @media (max-width: 768px) {
-            .container { padding: 15px; }
             .top-podium { height: 250px; gap: 5px; }
-            .podium-item { width: 30%; font-size: 0.8em; padding: 5px; }
+            .podium-item { width: 32%; font-size: 0.8em; padding: 5px; }
             .header h1 { font-size: 1.8em; }
+            .ranking-table { font-size: 0.7em; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>ŞEHRİN EFENDİLERİ</h1>
-            <p>Haftalık Arşiv & Onur Listesi</p>
-        </div>
 
-        <div class="controls">
-            <select id="weekSelector"><option>Haftalar Yükleniyor...</option></select>
+<div class="overlay">
+    <div class="container">
+        
+        <div class="glass-panel">
+            <div class="header">
+                <h1>HAFTALIK ARŞİV</h1>
+                <p>
+                    Bu sayfada geçmiş haftalara ait Top 15 listeleri yer alır.<br>
+                    Aşağıdan tarih aralığı seçerek verilere ulaşabilirsiniz.
+                </p>
+            </div>
+
+            <div class="controls">
+                <div class="filter-group">
+                    <label>YIL</label>
+                    <select id="yearSelector" onchange="updateMonths()">
+                        <option value="">Seçiniz</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>AY</label>
+                    <select id="monthSelector" onchange="updateWeeks()" disabled>
+                        <option value="">Yıl Seçin</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>HAFTA</label>
+                    <select id="weekSelector" onchange="loadData(this.value)" disabled>
+                        <option value="">Ay Seçin</option>
+                    </select>
+                </div>
+            </div>
         </div>
 
         <div id="podiumArea" class="top-podium"></div>
 
-        <table class="ranking-table">
-            <thead>
-                <tr>
-                    <th>Sıra</th>
-                    <th>Nick</th>
-                    <th>Kill</th>
-                    <th>HS %</th>
-                    <th>Acc %</th>
-                </tr>
-            </thead>
-            <tbody id="rankingBody"></tbody>
-        </table>
+        <div class="glass-panel" style="padding: 0; overflow: hidden;">
+            <table class="ranking-table">
+                <thead>
+                    <tr>
+                        <th>SIRA</th>
+                        <th>NICK</th>
+                        <th>ÖLDÜRME</th>
+                        <th>HEADSHOT</th>
+                        <th>ÖLÜMLER</th>
+                        <th>MERMİLER</th>
+                        <th>HEDEF TUTTURMA</th>
+                    </tr>
+                </thead>
+                <tbody id="rankingBody"></tbody>
+            </table>
+        </div>
     </div>
+</div>
 
-    <script>
-        // ÇAKIŞMAYI ÖNLEMEK İÇİN İSMİ DEĞİŞTİRDİK (_supabase)
-        const S_URL = "https://cyeklyjeszniowopawpc.supabase.co";
-        const S_KEY = "sb_publishable_RUhk34F8aZiNcgIDIZAwCA_8ZATrGh0";
-        
-        // Supabase istemcisini başlat
-        const _client = supabase.createClient(S_URL, S_KEY);
+<script>
+    const S_URL = "https://cyeklyjeszniowopawpc.supabase.co";
+    const S_KEY = "sb_publishable_RUhk34F8aZiNcgIDIZAwCA_8ZATrGh0";
+    const _client = supabase.createClient(S_URL, S_KEY);
 
-        async function loadWeeks() {
-            try {
-                const { data, error } = await _client
-                    .from('weekly_top15')
-                    .select('week_start, week_end')
-                    .order('week_end', { ascending: false });
+    let archiveMemory = []; 
+    const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 
-                if (error) throw error;
+    function formatDate(dateStr) {
+        const [y, m, d] = dateStr.split('-');
+        return `${d}.${m}.${y}`;
+    }
 
-                const selector = document.getElementById('weekSelector');
-                if (!data || data.length === 0) {
-                    selector.innerHTML = '<option>Henüz arşiv yok</option>';
-                    return;
+    async function loadArchiveStructure() {
+        try {
+            const { data, error } = await _client
+                .from('weekly_top15')
+                .select('week_start, week_end')
+                .order('week_end', { ascending: false });
+
+            if (error) throw error;
+
+            const map = new Map();
+            data.forEach(w => {
+                const key = `${w.week_start}_${w.week_end}`;
+                if (!map.has(key)) {
+                    const dateObj = new Date(w.week_start);
+                    map.set(key, {
+                        start: w.week_start,
+                        year: dateObj.getFullYear(),
+                        month: dateObj.getMonth(),
+                        label: `${formatDate(w.week_start)} - ${formatDate(w.week_end)}`
+                    });
                 }
-
-                // Benzersiz haftaları ayıkla
-                const map = new Map();
-                data.forEach(w => {
-                    const key = `${w.week_start} | ${w.week_end}`;
-                    if (!map.has(key)) map.set(key, w);
-                });
-
-                const weekCache = Array.from(map.values());
-                selector.innerHTML = '';
-                weekCache.forEach(w => {
-                    const opt = document.createElement('option');
-                    opt.value = w.week_start;
-                    opt.textContent = `${w.week_start} / ${w.week_end}`;
-                    selector.appendChild(opt);
-                });
-
-                // İlk haftayı yükle
-                loadData(weekCache[0].week_start);
-            } catch (err) { 
-                console.error("Hafta yükleme hatası:", err); 
-                document.getElementById('weekSelector').innerHTML = '<option>Bağlantı Hatası!</option>';
-            }
-        }
-
-        async function loadData(weekStart) {
-            try {
-                const { data, error } = await _client
-                    .from('weekly_top15')
-                    .select('*')
-                    .eq('week_start', weekStart)
-                    .order('rank', { ascending: true });
-
-                if (error) throw error;
-
-                if (data) {
-                    renderPodium(data.slice(0, 3));
-                    renderTable(data.slice(3));
-                }
-            } catch (err) {
-                console.error("Veri yükleme hatası:", err);
-            }
-        }
-
-        function renderPodium(top3) {
-            const area = document.getElementById('podiumArea');
-            area.innerHTML = '';
-            
-            // Görsel dizilim: 2. (Sol) - 1. (Orta) - 3. (Sağ)
-            const podiumOrder = [
-                { index: 1, class: 'second' },
-                { index: 0, class: 'first' },
-                { index: 2, class: 'third' }
-            ];
-
-            podiumOrder.forEach(item => {
-                const p = top3[item.index];
-                if (!p) return;
-                
-                const div = document.createElement('div');
-                div.className = `podium-item ${item.class}`;
-                div.innerHTML = `
-                    <p style="font-size:2em;margin:0">#${p.rank}</p>
-                    <p style="word-break:break-all; margin: 10px 0;">${p.nick.replace(/[<>]/g, '')}</p>
-                    <p style="font-size:1.2em">${p.kills} KILL</p>
-                `;
-                area.appendChild(div);
             });
-        }
 
-        function renderTable(players) {
-            document.getElementById('rankingBody').innerHTML = players.map(p => `
-                <tr>
-                    <td><strong>${p.rank}</strong></td>
-                    <td>${p.nick.replace(/[<>]/g, '')}</td>
-                    <td>${p.kills}</td>
-                    <td>%${p.hs_percent}</td>
-                    <td>%${p.accuracy}</td>
-                </tr>
-            `).join('');
-        }
+            archiveMemory = Array.from(map.values());
 
-        document.getElementById('weekSelector').addEventListener('change', (e) => loadData(e.target.value));
-        
-        // Başlat
-        loadWeeks();
-    </script>
+            const yearSelect = document.getElementById('yearSelector');
+            const years = [...new Set(archiveMemory.map(item => item.year))];
+            years.forEach(y => {
+                const opt = document.createElement('option');
+                opt.value = y;
+                opt.textContent = y;
+                yearSelect.appendChild(opt);
+            });
+
+        } catch (err) { console.error("Arşiv yapısı yüklenemedi:", err); }
+    }
+
+    function updateMonths() {
+        const year = document.getElementById('yearSelector').value;
+        const mSelect = document.getElementById('monthSelector');
+        const wSelect = document.getElementById('weekSelector');
+
+        mSelect.innerHTML = '<option value="">Ay Seçiniz</option>';
+        wSelect.innerHTML = '<option value="">Hafta Bekleniyor</option>';
+        wSelect.disabled = true;
+
+        if (!year) { mSelect.disabled = true; return; }
+
+        const months = [...new Set(archiveMemory.filter(d => d.year == year).map(d => d.month))];
+        months.sort((a, b) => b - a);
+
+        months.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = monthNames[m];
+            mSelect.appendChild(opt);
+        });
+        mSelect.disabled = false;
+    }
+
+    function updateWeeks() {
+        const year = document.getElementById('yearSelector').value;
+        const month = document.getElementById('monthSelector').value;
+        const wSelect = document.getElementById('weekSelector');
+
+        wSelect.innerHTML = '<option value="">Hafta Seçiniz</option>';
+        if (month === "") { wSelect.disabled = true; return; }
+
+        const weeks = archiveMemory.filter(d => d.year == year && d.month == month);
+        weeks.forEach(w => {
+            const opt = document.createElement('option');
+            opt.value = w.start;
+            opt.textContent = w.label;
+            wSelect.appendChild(opt);
+        });
+        wSelect.disabled = false;
+    }
+
+    async function loadData(weekStart) {
+        if(!weekStart) return;
+        try {
+            const { data, error } = await _client
+                .from('weekly_top15')
+                .select('*')
+                .eq('week_start', weekStart)
+                .order('rank', { ascending: true });
+
+            if (error) throw error;
+            if (data) {
+                renderPodium(data.slice(0, 3));
+                renderTable(data.slice(3));
+            }
+        } catch (err) { console.error("Veri hatası:", err); }
+    }
+
+    function renderPodium(top3) {
+        const area = document.getElementById('podiumArea');
+        area.innerHTML = '';
+        const order = [{ i: 1, c: 'second' }, { i: 0, c: 'first' }, { i: 2, c: 'third' }];
+
+        order.forEach(item => {
+            const p = top3[item.i];
+            if (!p) return;
+            const div = document.createElement('div');
+            div.className = `podium-item ${item.c}`;
+            div.innerHTML = `
+                <p style="font-size:2.5em;margin:0">#${p.rank}</p>
+                <p style="word-break:break-all; margin: 10px 0; font-size:0.9em;">${p.nick}</p>
+                <p style="font-size:1.2em">${p.kills} KILL</p>
+            `;
+            area.appendChild(div);
+        });
+    }
+
+    function renderTable(list) {
+        document.getElementById('rankingBody').innerHTML = list.map(p => `
+            <tr>
+                <td><strong>${p.rank}</strong></td>
+                <td>${p.nick}</td>
+                <td>${p.kills}</td>
+                <td>%${p.hs_percent}</td>
+                <td>${p.deaths}</td>
+                <td>${p.mermiler || 0}</td>
+                <td>%${p.accuracy}</td>
+            </tr>
+        `).join('');
+    }
+
+    loadArchiveStructure();
+</script>
 </body>
 </html>
