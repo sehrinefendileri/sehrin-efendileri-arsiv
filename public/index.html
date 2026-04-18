@@ -4,116 +4,88 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Şehrin Efendileri | Haftalık Arşiv</title>
-    
     <link rel="icon" type="image/png" href="bg.jpg">
-
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 0;
+            margin: 0; padding: 0;
             background: #000 url('bg.jpg') no-repeat center center fixed;
             background-size: cover;
-            color: #f0f0f0;
-            min-height: 100vh;
+            color: #f0f0f0; min-height: 100vh;
         }
 
-        /* Arka planı öldürmeyen, sadece içeriği okunur kılan hafif katman */
         .overlay {
             background-color: rgba(0, 0, 0, 0.7);
-            min-height: 100vh;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 30px 0;
+            min-height: 100vh; width: 100%;
+            display: flex; flex-direction: column; align-items: center;
+            padding: 40px 0;
         }
 
-        .container {
-            width: 95%;
-            max-width: 1100px;
-            text-align: center;
-        }
+        .container { width: 95%; max-width: 1100px; text-align: center; }
 
-        /* Cam Panel Efekti (Bulanıklık kaldırıldı, şeffaflık dengelendi) */
         .glass-panel {
-            background: rgba(0, 0, 0, 0.6);
-            border: 1px solid rgba(212, 175, 55, 0.3);
+            background: rgba(0, 0, 0, 0.65);
+            border: 1px solid rgba(212, 175, 55, 0.4);
             border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            padding: 30px; margin-bottom: 25px;
         }
 
-        .header h1 { color: #d4af37; text-transform: uppercase; letter-spacing: 3px; margin: 0; font-size: 2.2em; }
-        .header p { color: #ccc; margin: 10px 0; font-size: 0.95em; }
+        /* Başlıklar Büyütüldü */
+        .header h1 { color: #d4af37; text-transform: uppercase; letter-spacing: 5px; margin: 0; font-size: 2.8em; text-shadow: 2px 2px 10px rgba(0,0,0,1); }
+        .header p { color: #eee; margin: 15px 0; font-size: 1.2em; font-weight: 300; }
 
-        /* Filtreleme Alanı */
-        .filters {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 15px;
-        }
+        /* Filtre Alanı Büyütüldü */
+        .filters { display: flex; justify-content: center; gap: 20px; margin-top: 25px; }
         .filter-group { display: flex; flex-direction: column; align-items: center; }
-        .filter-group label { color: #d4af37; font-size: 0.75em; margin-bottom: 4px; font-weight: bold; }
+        .filter-group label { color: #d4af37; font-size: 1em; margin-bottom: 8px; font-weight: bold; letter-spacing: 1px; }
         
         select {
-            padding: 8px 12px;
-            background: #111;
-            color: gold;
-            border: 1px solid #d4af37;
-            border-radius: 6px;
+            padding: 12px 20px;
+            background: #000;
+            color: #d4af37;
+            border: 2px solid #d4af37;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 0.9em;
+            font-size: 1.1em;
+            font-weight: bold;
+            min-width: 150px;
         }
-        select:disabled { border-color: #444; color: #666; }
 
-        /* Zarif Podyum Alanı */
+        /* Podyum Kartları Küçültüldü ve Kibarlaştırıldı */
         .podium {
-            display: flex;
-            justify-content: center;
-            align-items: flex-end;
-            gap: 10px;
-            margin: 30px 0;
-            height: 240px;
+            display: flex; justify-content: center; align-items: flex-end;
+            gap: 15px; margin: 20px 0 40px 0; height: 180px; 
         }
 
         .podium-card {
-            width: 160px;
-            border-radius: 10px 10px 0 0;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            padding: 15px;
-            font-weight: bold;
-            color: #000;
-            text-shadow: none;
+            width: 140px; border-radius: 12px 12px 5px 5px;
+            display: flex; flex-direction: column; justify-content: center;
+            padding: 10px; font-weight: bold; color: #000;
         }
 
-        .first { background: linear-gradient(#d4af37, #f9e272); height: 100%; order: 2; transform: scale(1.05); box-shadow: 0 0 20px rgba(212, 175, 55, 0.4); }
+        .first { background: linear-gradient(#d4af37, #f9e272); height: 100%; order: 2; box-shadow: 0 0 15px rgba(212, 175, 55, 0.5); }
         .second { background: linear-gradient(#c0c0c0, #eee); height: 80%; order: 1; }
         .third { background: linear-gradient(#cd7f32, #f5af64); height: 65%; order: 3; }
 
-        /* Tam Liste Tablosu */
-        .ranking-table {
-            width: 100%;
-            border-collapse: collapse;
-            background: rgba(0, 0, 0, 0.5);
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        .ranking-table th { background: rgba(212, 175, 55, 0.9); color: #000; padding: 12px; font-size: 0.85em; text-transform: uppercase; }
-        .ranking-table td { padding: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); text-align: center; font-size: 0.9em; }
-        .ranking-table tr:hover { background: rgba(255, 255, 255, 0.05); }
-        .highlight { background: rgba(212, 175, 55, 0.1); font-weight: bold; }
+        .p-rank { font-size: 1.8em; }
+        .p-nick { font-size: 0.85em; margin: 5px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .p-kills { font-size: 1em; background: rgba(0,0,0,0.1); border-radius: 4px; }
+
+        /* Tablo Stili */
+        .ranking-table { width: 100%; border-collapse: collapse; background: rgba(0, 0, 0, 0.8); }
+        .ranking-table th { background: #d4af37; color: #000; padding: 15px; font-size: 1em; }
+        .ranking-table td { padding: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); text-align: center; font-size: 1em; }
+        .highlight { background: rgba(212, 175, 55, 0.15) !important; font-weight: bold; }
+        tr:nth-child(even) { background: rgba(255,255,255,0.03); }
 
         @media (max-width: 768px) {
-            .podium { height: 200px; gap: 5px; }
-            .podium-card { width: 32%; font-size: 0.75em; padding: 10px; }
-            .header h1 { font-size: 1.5em; }
-            .ranking-table th, .ranking-table td { font-size: 0.7em; padding: 8px 4px; }
+            .header h1 { font-size: 1.8em; }
+            .header p { font-size: 1em; }
+            .filters { flex-direction: column; gap: 10px; }
+            select { width: 100%; }
+            .podium { height: 150px; }
+            .podium-card { width: 30%; }
         }
     </style>
 </head>
@@ -121,14 +93,10 @@
 
 <div class="overlay">
     <div class="container">
-        
         <div class="glass-panel">
             <div class="header">
                 <h1>HAFTALIK ARŞİV</h1>
-                <p>
-                    Bu sayfada geçmiş haftalara ait Top 15 listeleri yer alır.<br>
-                    Aşağıdan tarih aralığı seçerek verilere ulaşabilirsiniz.
-                </p>
+                <p>Şehrin Efendileri Sunucusu Geçmiş Haftalar Podyumu</p>
             </div>
 
             <div class="filters">
@@ -149,7 +117,7 @@
 
         <div id="podiumArea" class="podium"></div>
 
-        <div class="glass-panel" style="padding: 0; overflow-x: auto;">
+        <div class="glass-panel" style="padding: 0; overflow-x: auto; border: none;">
             <table class="ranking-table">
                 <thead>
                     <tr>
@@ -159,7 +127,7 @@
                         <th>HEADSHOT</th>
                         <th>ÖLÜMLER</th>
                         <th>MERMİLER</th>
-                        <th>HEDEF TUTTURMA</th>
+                        <th>İSABET %</th>
                     </tr>
                 </thead>
                 <tbody id="rB"></tbody>
@@ -173,17 +141,14 @@
     const S_KEY = "sb_publishable_RUhk34F8aZiNcgIDIZAwCA_8ZATrGh0";
     const _c = supabase.createClient(S_URL, S_KEY);
 
-    let db = []; 
+    let db = [];
     const mN = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 
     function fD(s) { const [y, m, d] = s.split('-'); return `${d}.${m}.${y}`; }
 
     async function init() {
-        const { data } = await _c.from('weekly_top15').select('week_start, week_end').order('week_end', { ascending: false });
-        if (!data || data.length === 0) {
-            document.getElementById('wS').innerHTML = '<option>Veri Yok</option>';
-            return;
-        }
+        const { data, error } = await _c.from('weekly_top15').select('week_start, week_end').order('week_end', { ascending: false });
+        if (error || !data || data.length === 0) return;
 
         const map = new Map();
         data.forEach(w => {
@@ -206,6 +171,7 @@
         const mS = document.getElementById('mS');
         const wS = document.getElementById('wS');
         mS.innerHTML = '<option value="">Seçiniz</option>';
+        wS.innerHTML = '<option value="">Seçiniz</option>';
         wS.disabled = true;
 
         if (!y) { mS.disabled = true; return; }
@@ -236,7 +202,6 @@
         if(!s) return;
         const { data } = await _c.from('weekly_top15').select('*').eq('week_start', s).order('rank', { ascending: true });
         if (data) {
-            // Podyum
             const pA = document.getElementById('podiumArea');
             pA.innerHTML = '';
             const order = [{ i: 1, c: 'second' }, { i: 0, c: 'first' }, { i: 2, c: 'third' }];
@@ -244,16 +209,15 @@
                 const p = data[it.i];
                 if (!p) return;
                 pA.innerHTML += `<div class="podium-card ${it.c}">
-                    <div style="font-size:2em">#${p.rank}</div>
-                    <div style="font-size:0.8em; margin:10px 0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${p.nick}</div>
-                    <div style="font-size:1.1em">${p.kills} KILL</div>
+                    <div class="p-rank">#${p.rank}</div>
+                    <div class="p-nick">${p.nick}</div>
+                    <div class="p-kills">${p.kills} K</div>
                 </div>`;
             });
 
-            // Tam Liste Tablosu
             document.getElementById('rB').innerHTML = data.map(p => `
                 <tr class="${p.rank <= 3 ? 'highlight' : ''}">
-                    <td><strong>${p.rank}</strong></td>
+                    <td>${p.rank}</td>
                     <td>${p.nick}</td>
                     <td>${p.kills}</td>
                     <td>%${p.hs_percent}</td>
