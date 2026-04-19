@@ -18,14 +18,17 @@
         .filter-group label { color: #d4af37; font-weight: bold; margin-bottom: 8px; font-size: 0.9em; }
         select { padding: 12px; background: #000; color: #d4af37; border: 2px solid #d4af37; border-radius: 8px; font-weight: bold; min-width: 160px; cursor: pointer; }
         select:disabled { border-color: #555; color: #555; cursor: not-allowed; }
+        
+        /* 🛡️ Podyum Yapısı Onarımı */
         #dataArea { display: none; animation: fadeIn 0.8s ease; }
         .podium { display: flex; justify-content: center; align-items: flex-end; gap: 15px; margin: 20px 0 40px; height: 180px; }
-        .podium-card { width: 140px; border-radius: 12px 12px 5px 5px; display: flex; flex-direction: column; padding: 10px; color: #000; font-weight: bold; }
+        .podium-card { width: 140px; border-radius: 12px 12px 5px 5px; display: flex; flex-direction: column; padding: 10px; color: #000; font-weight: bold; transition: 0.3s; }
         .first { background: linear-gradient(#d4af37, #f9e272); height: 100%; order: 2; box-shadow: 0 0 20px rgba(212, 175, 55, 0.5); }
         .second { background: linear-gradient(#c0c0c0, #eee); height: 80%; order: 1; }
-        .third { background: linear-gradient(#cd7f32, #f5af64); height: 65%; order:  order: 3; }
+        .third { background: linear-gradient(#cd7f32, #f5af64); height: 65%; order: 3; } /* 👈 Order hatası düzeltildi */
+        
         .ranking-table { width: 100%; border-collapse: collapse; background: rgba(0, 0, 0, 0.8); }
-        .ranking-table th { background: #d4af37; color: #000; padding: 15px; font-size: 0.9em; }
+        .ranking-table th { background: #d4af37; color: #000; padding: 15px; font-size: 0.9em; text-transform: uppercase; }
         .ranking-table td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); text-align: center; }
         .highlight { background: rgba(212, 175, 55, 0.1) !important; font-weight: bold; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -39,7 +42,7 @@
         <div class="glass-panel">
             <div class="header">
                 <h1>HAFTALIK ARŞİV</h1>
-                <p>Bu sayfada geçmiş haftalara ait Top 15 listeleri yer alır. Aşağıdan tarih aralığı seçerek verilere ulaşabilirsiniz.</p>
+                <p>Şehrin Efendileri sunucusunun şanlı kayıtları. Kaynaktaki veriler birebir yansıtılmaktadır.</p>
             </div>
             <div class="filters">
                 <div class="filter-group"><label>YIL</label><select id="yS" onchange="updateMonths()"><option value="">Seçiniz</option></select></div>
@@ -53,7 +56,7 @@
             <div class="glass-panel" style="padding: 0; overflow-x: auto; border: none;">
                 <table class="ranking-table">
                     <thead>
-                        <tr><th>SIRA</th><th>NICK</th><th>ÖLDÜRME</th><th>HEADSHOT</th><th>ÖLÜMLER</th><th>MERMİLER</th><th>HEDEF TUTTURMA</th></tr>
+                        <tr><th>Sira</th><th>Nick</th><th>Öldürme</th><th>Headshot</th><th>Ölümler</th><th>Mermiler</th><th>Hedef Tutturma</th></tr>
                     </thead>
                     <tbody id="rB"></tbody>
                 </table>
@@ -70,7 +73,6 @@
     let db = [];
     const mN = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
     
-    // 🛡️ XSS Koruması
     const safe = (s) => String(s).replace(/[<>"']/g, '');
     const fD = (s) => { const [y, m, d] = s.split('-'); return `${d}.${m}.${y}`; };
 
@@ -131,41 +133,64 @@
             const { data } = await _c.from('weekly_top15').select('*').eq('week_start', s).order('rank', { ascending: true });
             if (data && data.length > 0) {
                 document.getElementById('dataArea').style.display = 'block';
-                renderPodium(data.slice(0, 3));
+                renderPodium(data);
                 renderTable(data);
             }
         } catch (e) { console.error("Veri çekilemedi."); }
     }
 
-    function renderPodium(top3) {
+    function renderPodium(data) {
         const pA = document.getElementById('podiumArea');
         pA.innerHTML = '';
-        const order = [1, 0, 2]; // 2., 1., 3. sıralama
-        const cls = ['second', 'first', 'third'];
-        order.forEach((pos, i) => {
-            const p = top3[pos];
-            if (p) {
-                pA.innerHTML += `<div class="podium-card ${cls[i]}">
-                    <div style="font-size:1.8em">#${p.rank}</div>
-                    <div style="font-size:0.85em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${safe(p.nick)}</div>
-                    <div style="background:rgba(0,0,0,0.1); border-radius:4px; padding:2px 5px; margin-top:5px">${p.kills} K</div>
-                </div>`;
+        
+        // 🛡️ Sıralama Garantisi
+        const sorted = [...data].sort((a, b) => (a.rank || 0) - (b.rank || 0));
+        const first = sorted[0] || null;
+        const second = sorted[1] || null;
+        const third = sorted[2] || null;
+
+        const podiumItems = [
+            { data: second, class: 'second' },
+            { data: first, class: 'first' },
+            { data: third, class: 'third' }
+        ];
+
+        podiumItems.forEach(item => {
+            if (item.data) {
+                pA.innerHTML += `
+                    <div class="podium-card ${item.class}">
+                        <div style="font-size:1.8em">#${item.data.rank}</div>
+                        <div style="font-size:0.85em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap" title="${safe(item.data.nick)}">
+                            ${safe(item.data.nick)}
+                        </div>
+                        <div style="background:rgba(0,0,0,0.2); border-radius:4px; padding:2px 5px; margin-top:5px">
+                            ${item.data.kills || item.data.total_kills || 0} K
+                        </div>
+                    </div>`;
+            } else {
+                pA.innerHTML += `<div class="podium-card" style="visibility:hidden"></div>`;
             }
         });
     }
 
     function renderTable(data) {
-        document.getElementById('rB').innerHTML = data.map(p => `
-            <tr class="${p.rank <= 3 ? 'highlight' : ''}">
-                <td><strong>${p.rank}</strong></td>
-                <td>${safe(p.nick)}</td>
-                <td>${p.kills}</td>
-                <td>%${p.hs_percent}</td>
-                <td>${p.deaths}</td>
-                <td>${p.mermiler}</td>
-                <td>%${p.accuracy}</td>
-            </tr>
-        `).join('');
+        // 🛡️ Tablo Sıralama ve Parantezli Görünüm Onarımı
+        const sortedData = [...data].sort((a, b) => (a.rank || 0) - (b.rank || 0));
+        document.getElementById('rB').innerHTML = sortedData.map(p => {
+            const hsPercent = p.hs_percent || 0;
+            const accuracy = p.accuracy || 0;
+            return `
+                <tr class="${p.rank <= 3 ? 'highlight' : ''}">
+                    <td><strong>${p.rank}</strong></td>
+                    <td>${safe(p.nick)}</td>
+                    <td>${p.kills || p.total_kills || 0}</td>
+                    <td>(${hsPercent}%)</td>
+                    <td>${p.deaths || p.total_deaths || 0}</td>
+                    <td>${p.mermiler || p.total_damage || 0}</td>
+                    <td>(${accuracy}%)</td>
+                </tr>
+            `;
+        }).join('');
     }
 
     init();
