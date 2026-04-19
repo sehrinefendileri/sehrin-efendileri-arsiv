@@ -9,12 +9,14 @@
         body {
             font-family: 'Segoe UI', sans-serif;
             margin: 0;
-            background: #000 url('https://r.resimlink.com/mS9Zf-p.png') no-repeat center center fixed;
+            /* YENİ LİNKİ BURAYA YAPIŞTIRACAKSIN PATRON */
+            background: #000 url('YENI_RESIM_LINKI_BURAYA') no-repeat center center fixed;
             background-size: cover;
             color: #f0f0f0;
         }
         .overlay {
-            background: rgba(0, 0, 0, 0.78);
+            /* Karanlık perdesini %78'den %60'a çektim ki resim patlasın */
+            background: rgba(0, 0, 0, 0.60);
             min-height: 100vh;
             padding: 40px 0;
         }
@@ -30,6 +32,7 @@
             border-radius: 12px;
             padding: 25px;
             margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
         }
         h1 { color: #d4af37; text-transform: uppercase; letter-spacing: 3px; }
         .filters { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
@@ -40,6 +43,7 @@
             border: 2px solid #d4af37;
             border-radius: 5px;
             cursor: pointer;
+            font-weight: bold;
         }
         .podium {
             display: flex;
