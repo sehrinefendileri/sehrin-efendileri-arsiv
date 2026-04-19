@@ -34,40 +34,38 @@ let suspiciousFlag = false;
 let lastGoodSnapshot = [];
 
 /* =========================
-   PARSERLAR (ZIRHLI VE HATASIZ)
+   PARSERLAR (YENİDEN YAZILDI - KUSURSUZ)
 ========================= */
+// ESKİ HATA: Rakam dışındaki her şeyi siliyordum, bu yüzden "894 (39.44%)" verisini "8943944" yapıyordu.
+// YENİ ÇÖZÜM: parseInt sadece baştaki asıl rakamı (894) alır, parantez içini (%39.44) umursamaz.
 function parseNumber(str) {
-    if (str === null || str === undefined || str === '') return 0;
-    const clean = String(str).replace(/[^\d]/g, '');
-    const result = parseInt(clean, 10);
-    return isNaN(result) ? 0 : result;
+    if (!str) return 0;
+    const parsed = parseInt(String(str).trim(), 10);
+    return isNaN(parsed) ? 0 : parsed;
 }
 
+// Yüzde kısmını çekmek için: Örn "731 (32.25%)" içinden "32.25" i alır.
 function parsePercent(str) {
-    if (str === null || str === undefined || str === '') return 0;
-    const text = String(str);
-    const match = text.match(/\(([^%]+)%\)/);
+    if (!str) return 0;
+    const match = String(str).match(/\(([\d.]+)%\)/);
     return match ? parseFloat(match[1]) : 0;
 }
 
 /* =========================
-   HEADER MAPPING (ASKERİ SINIF)
+   HEADER MAPPING
 ========================= */
 function extractHeaders($, table) {
     const headers = {};
     table.find('tr').first().find('td, th').each((i, el) => {
-        const text = $(el).text().toLowerCase();
-        if (text.includes('nick') || text.includes('isim')) headers.nick = i;
-        if (text.includes('öldür') || text.includes('kill')) headers.kills = i;
-        if (text.includes('ölüm') || text.includes('death')) headers.deaths = i;
-        if (text.includes('mermi') || text.includes('damage') || text.includes('bullet') || text.includes('shot')) headers.damage = i;
-        if (text.includes('hs') || text.includes('head')) headers.hs = i;
-        if (text.includes('isabet') || text.includes('acc') || text.includes('tutturma')) headers.acc = i;
-        if (text.includes('#') || text.includes('rank') || text.includes('sıra')) headers.rank = i;
+        const text = $(el).text().toLocaleLowerCase('tr-TR').trim();
+        if (text.includes('nick')) headers.nick = i;
+        if (text.includes('öldürme') || text.includes('kill')) headers.kills = i;
+        if (text.includes('ölümler') || text.includes('death')) headers.deaths = i;
+        if (text.includes('mermiler') || text.includes('damage')) headers.damage = i;
+        if (text.includes('headshot') || text.includes('hs')) headers.hs = i;
+        if (text.includes('hedef tutturma') || text.includes('acc')) headers.acc = i;
+        if (text.includes('sira') || text.includes('sıra')) headers.rank = i;
     });
-
-    const indices = Object.values(headers);
-    if (indices.some((val, i) => indices.indexOf(val) !== i)) throw new Error("Header mapping çakıştı! Panel sütunları birbirine girdi.");
     return headers;
 }
 
@@ -92,7 +90,7 @@ async function startMonitoring() {
 
         const $ = cheerio.load(response.data);
         const table = $('table#table1').first();
-        if (table.length === 0) throw new Error("Tablo bulunamadı! Panel erişimi engellenmiş olabilir.");
+        if (table.length === 0) throw new Error("Tablo bulunamadı!");
 
         const headers = extractHeaders($, table);
         if (headers.nick === undefined || headers.kills === undefined || headers.damage === undefined) {
@@ -104,35 +102,46 @@ async function startMonitoring() {
         let currentTotalDamage = 0;
 
         table.find('tr').each((i, el) => {
-            if (i === 0) return;
+            if (i === 0) return; // Başlığı geç
+            
             const cols = $(el).find('td');
-            if (cols.length < 5) return;
+            
+            // FOOTER KORUMASI: Tablonun en altındaki "Rank Toplam..." gibi yazıları es geçmek için
+            if (cols.length < 7) return; 
 
             const nick = $(cols[headers.nick]).text().trim();
             if (!nick || nick.length < 2) return;
 
-            const kills = parseNumber($(cols[headers.kills]).text());
-            const damage = parseNumber($(cols[headers.damage]).text());
+            const rankVal = parseNumber($(cols[headers.rank]).text());
+            const killsVal = parseNumber($(cols[headers.kills]).text());
+            const deathsVal = parseNumber($(cols[headers.deaths]).text());
+            const mermiVal = parseNumber($(cols[headers.damage]).text());
+            const hsVal = parsePercent($(cols[headers.hs]).text());
+            const accVal = parsePercent($(cols[headers.acc]).text());
 
             players.push({
-                rank: parseNumber($(cols[headers.rank])?.text() || i),
-                nick,
-                total_kills: kills,
-                total_deaths: parseNumber($(cols[headers.deaths])?.text()),
-                total_damage: damage,
-                hs_percent: parsePercent($(cols[headers.hs])?.text()),
-                accuracy: parsePercent($(cols[headers.acc])?.text()),
+                rank: rankVal || i,
+                nick: nick,
+                total_kills: killsVal,
+                total_deaths: deathsVal,
+                total_damage: mermiVal,
+                hs_percent: hsVal,
+                accuracy: accVal,
                 updated_at: new Date()
             });
-            currentTotalKills += kills;
-            currentTotalDamage += damage;
+            
+            currentTotalKills += killsVal;
+            currentTotalDamage += mermiVal;
         });
 
-        if (players.length < 5) return;
+        if (players.length === 0) {
+            console.log("⚠️ Tablodan hiç oyuncu çıkarılamadı!");
+            return;
+        }
 
         // 🛡️ SESSİZ VERİ SAPMASI KORUMASI
         if (currentTotalDamage > 0 && currentTotalDamage < currentTotalKills) {
-            throw new Error("Veri Mantık Hatası: Toplam mermi sayısı öldürme sayısından az. Sütunlar kaymış olabilir!");
+            throw new Error("Veri Mantık Hatası: Toplam mermi sayısı öldürme sayısından az.");
         }
 
         if (lastGoodSnapshot.length === 0) {
@@ -179,15 +188,6 @@ async function startMonitoring() {
 
     } catch (err) {
         console.error("❌ Hata:", err.message);
-        
-        if (err.message.includes("sütun") || err.message.includes("Mantık") || err.message.includes("Tablo")) {
-            transporter.sendMail({
-                from: '"Sistem Alarmı" <leventistemi@hotmail.com>',
-                to: "leventistemi@hotmail.com",
-                subject: "🚨 ACİL: Şehrin Efendileri Botu Durdu!",
-                text: `Bot veri çekemiyor ve kendini korumaya aldı.\nHata Mesajı: ${err.message}\nLütfen paneli kontrol edin: ${PANEL_URL}`
-            }).catch(e => console.error("Alarm maili gönderilemedi:", e.message));
-        }
     } finally {
         isRunning = false;
     }
