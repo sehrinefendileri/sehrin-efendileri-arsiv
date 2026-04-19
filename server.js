@@ -18,11 +18,10 @@ const port = process.env.PORT || 10000;
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const PANEL_URL = "https://panel25.oyunyoneticisi.com/rank/index.php?ip=95.173.173.81";
 
-// 🛡️ DOSYA SUNUMU (Hem ana dizine hem public klasörüne bakar)
+// Statik dosyalar
 app.use(express.static(__dirname)); 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 🛡️ HOTMAIL BİLDİRİM
 const transporter = nodemailer.createTransport({
     host: "smtp.office365.com",
     port: 587,
@@ -32,6 +31,7 @@ const transporter = nodemailer.createTransport({
 });
 
 let isRunning = false;
+let isArchiving = false;
 
 function generateWeekId(players) {
     const raw = players.slice(0, 5).map(p => p.nick + p.total_kills).join('|');
@@ -39,34 +39,29 @@ function generateWeekId(players) {
 }
 
 async function startMonitoring() {
-    if (isRunning) return;
-    isRunning = true;
+    if (isRunning || isArchiving) return;
+    isRunning = true; // 🛡️ Kilidi try bloğundan hemen önce koyduk
 
     try {
-        const response = await axios.get(PANEL_URL, { timeout: 15000 });
+        console.log("🔍 Panel taranıyor...");
+        const response = await axios.get(PANEL_URL, { 
+            timeout: 25000, 
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        
         const $ = cheerio.load(response.data);
         const table = $('table#table1');
         
-        const firstRowText = table.find('tr').first().text().toUpperCase();
-        if (table.length > 0 && (!firstRowText.includes('SIRA') || !firstRowText.includes('NICK'))) {
-             throw new Error("KRİTİK: Panel yapısı değişmiş!");
-        }
-
-        if (table.length === 0 || table.find('tr').length <= 1) {
-            const { data: log } = await supabase.from('system_log').select('*').limit(1).maybeSingle();
-            if (log && log.total_kills_sum > 500) await archiveTheWeek(null);
-            return;
-        }
+        if (table.length === 0) throw new Error("Panel tablosu bulunamadı!");
 
         const headers = {};
         table.find('tr').first().find('td, th').each((index, el) => {
             const text = $(el).text().toUpperCase().trim();
-            if (text.includes('SIRA')) headers.rank = index;
             if (text.includes('NICK')) headers.nick = index;
             if (text.includes('ÖLDÜRME')) headers.kills = index;
-            if (text.includes('HEADSHOT')) headers.hs = index;
             if (text.includes('ÖLÜMLER')) headers.deaths = index;
             if (text.includes('MERMİLER')) headers.bullets = index;
+            if (text.includes('HEADSHOT')) headers.hs = index;
             if (text.includes('HEDEF TUTTURMA')) headers.acc = index;
         });
 
@@ -79,38 +74,47 @@ async function startMonitoring() {
             if (cols.length > 5) {
                 const nick = $(cols[headers.nick]).text().trim();
                 const kills = parseInt($(cols[headers.kills]).text()) || 0;
-                if (!nick || kills < 0) return;
-
-                players.push({
-                    rank: parseInt($(cols[headers.rank]).text()) || i,
-                    nick,
-                    total_kills: kills,
-                    total_deaths: parseInt($(cols[headers.deaths]).text()) || 0,
-                    mermiler: parseInt($(cols[headers.bullets]).text()) || 0,
-                    hs_percent: $(cols[headers.hs]).text().match(/\(([^%]+)%/)?.[1] || "0",
-                    accuracy: $(cols[headers.acc]).text().match(/\(([^%]+)%/)?.[1] || "0",
-                    updated_at: new Date()
-                });
-                currentTotalKills += kills;
+                
+                if (nick && nick !== "") {
+                    players.push({
+                        nick: nick,
+                        total_kills: kills,
+                        total_deaths: parseInt($(cols[headers.deaths]).text()) || 0,
+                        total_damage: parseInt($(cols[headers.bullets]).text()) || 0,
+                        hs_percent: parseFloat($(cols[headers.hs]).text().match(/\(([^%]+)%/)?.[1]) || 0,
+                        accuracy: parseFloat($(cols[headers.acc]).text().match(/\(([^%]+)%/)?.[1]) || 0,
+                        updated_at: new Date()
+                    });
+                    currentTotalKills += kills;
+                }
             }
         });
 
         const { data: log } = await supabase.from('system_log').select('*').limit(1).maybeSingle();
-        if (log && log.total_kills_sum > 1000 && currentTotalKills < (log.total_kills_sum * 0.35)) {
-            await archiveTheWeek(players);
+        
+        if (log && log.total_kills_sum > 1000 && currentTotalKills < (log.total_kills_sum * 0.3)) {
+            isArchiving = true;
+            await archiveTheWeek();
+            isArchiving = false;
+            isRunning = false; // 🛡️ Önemli: Arşivlemeden sonra kilidi aç
+            return;
         }
 
         await supabase.from('players').upsert(players, { onConflict: 'nick' });
         await supabase.from('system_log').upsert({ id: 1, total_kills_sum: currentTotalKills, last_fetch: new Date() });
+        console.log(`✅ ${players.length} Oyuncu güncellendi.`);
 
     } catch (error) {
-        console.error("❌", error.message);
-    } finally { isRunning = false; }
+        console.error("❌ Hata:", error.message);
+    } finally { 
+        isRunning = false; // 🛡️ Ne olursa olsun kilidi aç (Donmayı engeller)
+    }
 }
 
-async function archiveTheWeek(currentPlayers) {
+async function archiveTheWeek() {
     try {
-        const { data: top15 } = await supabase.from('players').select('*').order('rank', { ascending: true }).limit(15);
+        console.log("🏛️ Arşiv mühürleniyor...");
+        const { data: top15 } = await supabase.from('players').select('*').order('total_kills', { ascending: false }).limit(15);
         if (!top15 || top15.length < 5) return;
 
         const weekId = generateWeekId(top15);
@@ -118,48 +122,62 @@ async function archiveTheWeek(currentPlayers) {
         if (exists && exists.length > 0) return;
 
         const { data: lastArchive } = await supabase.from('weekly_top15').select('week_end').order('week_end', { ascending: false }).limit(1).maybeSingle();
+        
         let startDate = lastArchive ? new Date(lastArchive.week_end) : new Date("2026-04-13");
         if (lastArchive) startDate.setDate(startDate.getDate() + 1);
 
         let endDate = new Date();
         endDate.setDate(endDate.getDate() - 1);
 
-        const archiveRows = top15.map(p => ({
+        const archiveRows = top15.map((p, index) => ({
             week_id: weekId,
             week_start: startDate.toISOString().split('T')[0],
             week_end: endDate.toISOString().split('T')[0],
-            rank: p.rank,
+            rank: index + 1,
             nick: p.nick,
             kills: p.total_kills,
             deaths: p.total_deaths,
-            mermiler: p.mermiler,
+            mermiler: p.total_damage,
             hs_percent: p.hs_percent,
             accuracy: p.accuracy
         }));
 
-        await supabase.from('weekly_top15').insert(archiveRows);
-        await supabase.from('players').delete().neq('nick', '---');
-        await supabase.from('system_log').upsert({ id: 1, total_kills_sum: 0 });
-        console.log("✅ Hafta Mühürlendi!");
-    } catch (err) { console.error("Arşiv Hatası:", err.message); }
+        const { error } = await supabase.from('weekly_top15').insert(archiveRows);
+        if (!error) {
+            await supabase.from('players').delete().neq('nick', '---');
+            await supabase.from('system_log').upsert({ id: 1, total_kills_sum: 0 });
+            
+            await transporter.sendMail({
+                from: '"Arşiv Botu" <leventistemi@hotmail.com>',
+                to: "leventistemi@hotmail.com",
+                subject: "🛡️ Şehrin Efendileri: Hafta Mühürlendi!",
+                text: `Haftalık arşiv başarıyla kaydedildi.\n\nID: ${weekId}\nBaşlangıç: ${startDate.toLocaleDateString()}\nBitiş: ${endDate.toLocaleDateString()}`
+            });
+        }
+    } catch (err) { console.error("❌ Arşiv Hatası:", err.message); }
 }
 
+// Zamanlayıcı
 cron.schedule('*/3 * * * *', startMonitoring);
 
-// 🛡️ ANA SAYFA YÖNLENDİRMESİ (Not Found Çözücü)
+// 🛡️ GÜVENLİ ANA SAYFA (Hafıza sızıntısı engellendi)
 app.get('/', (req, res) => {
     const rootPath = path.join(__dirname, 'index.html');
     const publicPath = path.join(__dirname, 'public', 'index.html');
     
-    // Önce ana dizine bak, yoksa public klasörüne bak
     res.sendFile(rootPath, (err) => {
         if (err) {
-            res.sendFile(publicPath);
+            res.sendFile(publicPath, (err2) => {
+                if (err2) {
+                    res.status(404).send("<h1>Arşiv Sayfası Yüklenemedi</h1><p>Dosyalar eksik veya sunucu hatası.</p>");
+                }
+            });
         }
     });
 });
 
 app.listen(port, () => {
     console.log(`🚀 Arşiv Sistemi ${port} portunda aktif.`);
-    startMonitoring();
+    // 🛡️ İlk çalıştırmayı güvenli hale getirdik
+    setTimeout(startMonitoring, 5000); 
 });
