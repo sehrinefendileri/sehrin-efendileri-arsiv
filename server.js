@@ -18,11 +18,9 @@ const port = process.env.PORT || 10000;
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const PANEL_URL = "https://panel25.oyunyoneticisi.com/rank/index.php?ip=95.173.173.81";
 
-// 🛡️ GÜVENLİK: DOSYA SUNUMU (Arka plan ve CSS için kritik!)
-// Eğer dosyaların (index.html, bg.jpg) GitHub'da en dıştaysa bunu kullanırız.
+// 🛡️ DOSYA SUNUMU (Hem ana dizine hem public klasörüne bakar)
 app.use(express.static(__dirname)); 
-// Eğer dosyaların 'public' klasöründeyse üstteki satırı silip alttakini aç:
-// app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // 🛡️ HOTMAIL BİLDİRİM
 const transporter = nodemailer.createTransport({
@@ -35,7 +33,6 @@ const transporter = nodemailer.createTransport({
 
 let isRunning = false;
 
-// 🛡️ Benzersiz Hafta ID üretici
 function generateWeekId(players) {
     const raw = players.slice(0, 5).map(p => p.nick + p.total_kills).join('|');
     return crypto.createHash('md5').update(raw).digest('hex');
@@ -50,7 +47,6 @@ async function startMonitoring() {
         const $ = cheerio.load(response.data);
         const table = $('table#table1');
         
-        // 🛡️ SÜTUN SENSÖRÜ
         const firstRowText = table.find('tr').first().text().toUpperCase();
         if (table.length > 0 && (!firstRowText.includes('SIRA') || !firstRowText.includes('NICK'))) {
              throw new Error("KRİTİK: Panel yapısı değişmiş!");
@@ -58,7 +54,7 @@ async function startMonitoring() {
 
         if (table.length === 0 || table.find('tr').length <= 1) {
             const { data: log } = await supabase.from('system_log').select('*').limit(1).maybeSingle();
-            if (log && log.total_kills_sum > 500) await archiveTheWeek([]);
+            if (log && log.total_kills_sum > 500) await archiveTheWeek(null);
             return;
         }
 
@@ -100,7 +96,6 @@ async function startMonitoring() {
         });
 
         const { data: log } = await supabase.from('system_log').select('*').limit(1).maybeSingle();
-        
         if (log && log.total_kills_sum > 1000 && currentTotalKills < (log.total_kills_sum * 0.35)) {
             await archiveTheWeek(players);
         }
@@ -110,9 +105,6 @@ async function startMonitoring() {
 
     } catch (error) {
         console.error("❌", error.message);
-        if (error.message.includes("KRİTİK")) {
-            // Mail gönderimini buraya ekleyebilirsin
-        }
     } finally { isRunning = false; }
 }
 
@@ -122,12 +114,10 @@ async function archiveTheWeek(currentPlayers) {
         if (!top15 || top15.length < 5) return;
 
         const weekId = generateWeekId(top15);
-
         const { data: exists } = await supabase.from('weekly_top15').select('week_id').eq('week_id', weekId).limit(1);
         if (exists && exists.length > 0) return;
 
         const { data: lastArchive } = await supabase.from('weekly_top15').select('week_end').order('week_end', { ascending: false }).limit(1).maybeSingle();
-        
         let startDate = lastArchive ? new Date(lastArchive.week_end) : new Date("2026-04-13");
         if (lastArchive) startDate.setDate(startDate.getDate() + 1);
 
@@ -147,21 +137,26 @@ async function archiveTheWeek(currentPlayers) {
             accuracy: p.accuracy
         }));
 
-        const { error } = await supabase.from('weekly_top15').insert(archiveRows);
-        if (!error) {
-            await supabase.from('players').delete().neq('nick', '---');
-            await supabase.from('system_log').upsert({ id: 1, total_kills_sum: 0 });
-            console.log("✅ Hafta Mühürlendi!");
-        }
+        await supabase.from('weekly_top15').insert(archiveRows);
+        await supabase.from('players').delete().neq('nick', '---');
+        await supabase.from('system_log').upsert({ id: 1, total_kills_sum: 0 });
+        console.log("✅ Hafta Mühürlendi!");
     } catch (err) { console.error("Arşiv Hatası:", err.message); }
 }
 
 cron.schedule('*/3 * * * *', startMonitoring);
 
-// HTML dosyasını sunma
+// 🛡️ ANA SAYFA YÖNLENDİRMESİ (Not Found Çözücü)
 app.get('/', (req, res) => {
-    // index.html dosyan public içindeyse yolu düzeltmeyi unutma!
-    res.sendFile(path.join(__dirname, 'index.html')); 
+    const rootPath = path.join(__dirname, 'index.html');
+    const publicPath = path.join(__dirname, 'public', 'index.html');
+    
+    // Önce ana dizine bak, yoksa public klasörüne bak
+    res.sendFile(rootPath, (err) => {
+        if (err) {
+            res.sendFile(publicPath);
+        }
+    });
 });
 
 app.listen(port, () => {
