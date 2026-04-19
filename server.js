@@ -34,17 +34,20 @@ let suspiciousFlag = false;
 let lastGoodSnapshot = [];
 
 /* =========================
-   PARSERLAR (GÜVENLİ)
+   PARSERLAR (ZIRHLI VE HATASIZ)
 ========================= */
 function parseNumber(str) {
-    if (!str) return 0;
-    const clean = str.replace(/[^\d]/g, '');
+    // 🛡️ KRİTİK DÜZELTME: replace hatasını kökten çözen yapı
+    if (str === null || str === undefined) return 0;
+    const text = String(str); 
+    const clean = text.replace(/[^\d]/g, '');
     return clean ? parseInt(clean) : 0;
 }
 
 function parsePercent(str) {
-    if (!str) return 0;
-    const match = str.match(/\(([^%]+)%\)/);
+    if (str === null || str === undefined) return 0;
+    const text = String(str);
+    const match = text.match(/\(([^%]+)%\)/);
     return match ? parseFloat(match[1]) : 0;
 }
 
@@ -178,7 +181,6 @@ async function startMonitoring() {
     } catch (err) {
         console.error("❌ Hata:", err.message);
         
-        // 🚨 KRİTİK HATA ALARMI: Panel değişirse veya mantık hatası olursa mail at
         if (err.message.includes("sütun") || err.message.includes("Mantık") || err.message.includes("Tablo")) {
             transporter.sendMail({
                 from: '"Sistem Alarmı" <leventistemi@hotmail.com>',
