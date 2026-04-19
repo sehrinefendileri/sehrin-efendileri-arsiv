@@ -7,7 +7,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
-import crypto from 'crypto'; // 🛡️ Yeni: week_id oluşturmak için
+import crypto from 'crypto'; 
 
 dotenv.config();
 
@@ -17,6 +17,12 @@ const app = express();
 const port = process.env.PORT || 10000;
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const PANEL_URL = "https://panel25.oyunyoneticisi.com/rank/index.php?ip=95.173.173.81";
+
+// 🛡️ GÜVENLİK: DOSYA SUNUMU (Arka plan ve CSS için kritik!)
+// Eğer dosyaların (index.html, bg.jpg) GitHub'da en dıştaysa bunu kullanırız.
+app.use(express.static(__dirname)); 
+// Eğer dosyaların 'public' klasöründeyse üstteki satırı silip alttakini aç:
+// app.use(express.static(path.join(__dirname, 'public')));
 
 // 🛡️ HOTMAIL BİLDİRİM
 const transporter = nodemailer.createTransport({
@@ -29,7 +35,7 @@ const transporter = nodemailer.createTransport({
 
 let isRunning = false;
 
-// 🛡️ Yeni: Aynı haftayı mühürlemeyi engelleyen benzersiz ID üretici
+// 🛡️ Benzersiz Hafta ID üretici
 function generateWeekId(players) {
     const raw = players.slice(0, 5).map(p => p.nick + p.total_kills).join('|');
     return crypto.createHash('md5').update(raw).digest('hex');
@@ -95,9 +101,8 @@ async function startMonitoring() {
 
         const { data: log } = await supabase.from('system_log').select('*').limit(1).maybeSingle();
         
-        // 🔥 RESET TESPİTİ VE ARŞİVLEME
         if (log && log.total_kills_sum > 1000 && currentTotalKills < (log.total_kills_sum * 0.35)) {
-            await archiveTheWeek(players); // Veriyi gönderiyoruz
+            await archiveTheWeek(players);
         }
 
         await supabase.from('players').upsert(players, { onConflict: 'nick' });
@@ -105,18 +110,19 @@ async function startMonitoring() {
 
     } catch (error) {
         console.error("❌", error.message);
+        if (error.message.includes("KRİTİK")) {
+            // Mail gönderimini buraya ekleyebilirsin
+        }
     } finally { isRunning = false; }
 }
 
 async function archiveTheWeek(currentPlayers) {
     try {
-        // Arşivlenecek veriyi 'players' tablosundan çek (En son temiz veri)
         const { data: top15 } = await supabase.from('players').select('*').order('rank', { ascending: true }).limit(15);
         if (!top15 || top15.length < 5) return;
 
         const weekId = generateWeekId(top15);
 
-        // 🛡️ DUPLICATE KONTROLÜ
         const { data: exists } = await supabase.from('weekly_top15').select('week_id').eq('week_id', weekId).limit(1);
         if (exists && exists.length > 0) return;
 
@@ -129,7 +135,7 @@ async function archiveTheWeek(currentPlayers) {
         endDate.setDate(endDate.getDate() - 1);
 
         const archiveRows = top15.map(p => ({
-            week_id: weekId, // 🛡️ Benzersiz hafta ID
+            week_id: weekId,
             week_start: startDate.toISOString().split('T')[0],
             week_end: endDate.toISOString().split('T')[0],
             rank: p.rank,
@@ -151,5 +157,14 @@ async function archiveTheWeek(currentPlayers) {
 }
 
 cron.schedule('*/3 * * * *', startMonitoring);
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.listen(port, () => startMonitoring());
+
+// HTML dosyasını sunma
+app.get('/', (req, res) => {
+    // index.html dosyan public içindeyse yolu düzeltmeyi unutma!
+    res.sendFile(path.join(__dirname, 'index.html')); 
+});
+
+app.listen(port, () => {
+    console.log(`🚀 Arşiv Sistemi ${port} portunda aktif.`);
+    startMonitoring();
+});
