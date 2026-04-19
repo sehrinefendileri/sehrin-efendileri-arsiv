@@ -37,15 +37,14 @@ let lastGoodSnapshot = [];
    PARSERLAR (ZIRHLI VE HATASIZ)
 ========================= */
 function parseNumber(str) {
-    // 🛡️ KRİTİK DÜZELTME: replace hatasını kökten çözen yapı
-    if (str === null || str === undefined) return 0;
-    const text = String(str); 
-    const clean = text.replace(/[^\d]/g, '');
-    return clean ? parseInt(clean) : 0;
+    if (str === null || str === undefined || str === '') return 0;
+    const clean = String(str).replace(/[^\d]/g, '');
+    const result = parseInt(clean, 10);
+    return isNaN(result) ? 0 : result;
 }
 
 function parsePercent(str) {
-    if (str === null || str === undefined) return 0;
+    if (str === null || str === undefined || str === '') return 0;
     const text = String(str);
     const match = text.match(/\(([^%]+)%\)/);
     return match ? parseFloat(match[1]) : 0;
