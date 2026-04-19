@@ -34,17 +34,14 @@ let suspiciousFlag = false;
 let lastGoodSnapshot = [];
 
 /* =========================
-   PARSERLAR (YENİDEN YAZILDI - KUSURSUZ)
+   PARSERLAR (KUSURSUZ)
 ========================= */
-// ESKİ HATA: Rakam dışındaki her şeyi siliyordum, bu yüzden "894 (39.44%)" verisini "8943944" yapıyordu.
-// YENİ ÇÖZÜM: parseInt sadece baştaki asıl rakamı (894) alır, parantez içini (%39.44) umursamaz.
 function parseNumber(str) {
     if (!str) return 0;
     const parsed = parseInt(String(str).trim(), 10);
     return isNaN(parsed) ? 0 : parsed;
 }
 
-// Yüzde kısmını çekmek için: Örn "731 (32.25%)" içinden "32.25" i alır.
 function parsePercent(str) {
     if (!str) return 0;
     const match = String(str).match(/\(([\d.]+)%\)/);
@@ -52,20 +49,31 @@ function parsePercent(str) {
 }
 
 /* =========================
-   HEADER MAPPING
+   HEADER MAPPING (TERMİNATÖR MODU)
 ========================= */
 function extractHeaders($, table) {
     const headers = {};
-    table.find('tr').first().find('td, th').each((i, el) => {
-        const text = $(el).text().toLocaleLowerCase('tr-TR').trim();
-        if (text.includes('nick')) headers.nick = i;
-        if (text.includes('öldürme') || text.includes('kill')) headers.kills = i;
-        if (text.includes('ölümler') || text.includes('death')) headers.deaths = i;
-        if (text.includes('mermiler') || text.includes('damage')) headers.damage = i;
-        if (text.includes('headshot') || text.includes('hs')) headers.hs = i;
-        if (text.includes('hedef tutturma') || text.includes('acc')) headers.acc = i;
-        if (text.includes('sira') || text.includes('sıra')) headers.rank = i;
+    
+    // Sadece 1. satıra değil, başlıkları bulana kadar tüm satırlara bakar
+    table.find('tr').each((rowIndex, row) => {
+        if (headers.nick !== undefined) return; // Başlıkları bulduysak aramayı bırak
+
+        $(row).find('td, th').each((i, el) => {
+            // Türkçe karakterleri kökten temizleyip sıfır hata bırakıyoruz
+            let text = $(el).text().toLowerCase()
+                .replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ü/g, 'u')
+                .replace(/ş/g, 's').replace(/ç/g, 'c').replace(/ğ/g, 'g').trim();
+            
+            if (text.includes('nick')) headers.nick = i;
+            if (text.includes('oldurme') || text.includes('kill')) headers.kills = i;
+            if (text.includes('olumler') || text.includes('death')) headers.deaths = i;
+            if (text.includes('mermi') || text.includes('damage')) headers.damage = i;
+            if (text.includes('headshot') || text.includes('hs')) headers.hs = i;
+            if (text.includes('hedef') || text.includes('acc')) headers.acc = i;
+            if (text.includes('sira') || text.includes('rank')) headers.rank = i;
+        });
     });
+
     return headers;
 }
 
@@ -102,15 +110,12 @@ async function startMonitoring() {
         let currentTotalDamage = 0;
 
         table.find('tr').each((i, el) => {
-            if (i === 0) return; // Başlığı geç
-            
             const cols = $(el).find('td');
-            
-            // FOOTER KORUMASI: Tablonun en altındaki "Rank Toplam..." gibi yazıları es geçmek için
-            if (cols.length < 7) return; 
+            if (cols.length < 5) return; // Eksik sütunlu satırları geç
 
             const nick = $(cols[headers.nick]).text().trim();
-            if (!nick || nick.length < 2) return;
+            // Eğer okuduğu satır "NICK" başlığıysa (header satırıysa) kaydetmeden geç
+            if (!nick || nick.length < 2 || nick.toUpperCase() === 'NICK') return;
 
             const rankVal = parseNumber($(cols[headers.rank]).text());
             const killsVal = parseNumber($(cols[headers.kills]).text());
@@ -139,7 +144,6 @@ async function startMonitoring() {
             return;
         }
 
-        // 🛡️ SESSİZ VERİ SAPMASI KORUMASI
         if (currentTotalDamage > 0 && currentTotalDamage < currentTotalKills) {
             throw new Error("Veri Mantık Hatası: Toplam mermi sayısı öldürme sayısından az.");
         }
