@@ -1,199 +1,321 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Şehrin Efendileri | Haftalık Arşiv</title>
-    <link rel="icon" type="image/png" href="bg.jpg">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #000 url('bg.jpg') no-repeat center center fixed; background-size: cover; color: #f0f0f0; }
-        .overlay { background-color: rgba(0, 0, 0, 0.75); min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 40px 0; }
-        .container { width: 95%; max-width: 1100px; text-align: center; }
-        .glass-panel { background: rgba(0, 0, 0, 0.65); border: 1px solid rgba(212, 175, 55, 0.4); border-radius: 15px; padding: 30px; margin-bottom: 25px; }
-        .header h1 { color: #d4af37; text-transform: uppercase; letter-spacing: 5px; font-size: 3em; margin: 0; }
-        .header p { color: #eee; margin: 15px 0; font-size: 1.1em; line-height: 1.6; }
-        .filters { display: flex; justify-content: center; gap: 20px; margin-top: 25px; }
-        .filter-group { display: flex; flex-direction: column; align-items: center; }
-        .filter-group label { color: #d4af37; font-weight: bold; margin-bottom: 8px; font-size: 0.9em; }
-        select { padding: 12px; background: #000; color: #d4af37; border: 2px solid #d4af37; border-radius: 8px; font-weight: bold; min-width: 160px; cursor: pointer; }
-        select:disabled { border-color: #555; color: #555; cursor: not-allowed; }
-        
-        /* 🛡️ Podyum Yapısı Onarımı */
-        #dataArea { display: none; animation: fadeIn 0.8s ease; }
-        .podium { display: flex; justify-content: center; align-items: flex-end; gap: 15px; margin: 20px 0 40px; height: 180px; }
-        .podium-card { width: 140px; border-radius: 12px 12px 5px 5px; display: flex; flex-direction: column; padding: 10px; color: #000; font-weight: bold; transition: 0.3s; }
-        .first { background: linear-gradient(#d4af37, #f9e272); height: 100%; order: 2; box-shadow: 0 0 20px rgba(212, 175, 55, 0.5); }
-        .second { background: linear-gradient(#c0c0c0, #eee); height: 80%; order: 1; }
-        .third { background: linear-gradient(#cd7f32, #f5af64); height: 65%; order: 3; } /* 👈 Order hatası düzeltildi */
-        
-        .ranking-table { width: 100%; border-collapse: collapse; background: rgba(0, 0, 0, 0.8); }
-        .ranking-table th { background: #d4af37; color: #000; padding: 15px; font-size: 0.9em; text-transform: uppercase; }
-        .ranking-table td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); text-align: center; }
-        .highlight { background: rgba(212, 175, 55, 0.1) !important; font-weight: bold; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @media (max-width: 768px) { .filters { flex-direction: column; } select { width: 100%; } .header h1 { font-size: 1.8em; } }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Şehrin Efendileri | Haftalık Arşiv</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+body {
+    font-family: 'Segoe UI', sans-serif;
+    margin: 0;
+    background: #000;
+    color: #f0f0f0;
+}
+
+.overlay {
+    background: rgba(0,0,0,0.8);
+    min-height: 100vh;
+    padding: 40px 0;
+}
+
+.container {
+    width: 95%;
+    max-width: 1100px;
+    margin: auto;
+    text-align: center;
+}
+
+.glass-panel {
+    background: rgba(0,0,0,0.6);
+    border: 1px solid rgba(212,175,55,0.4);
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 20px;
+}
+
+h1 {
+    color: #d4af37;
+}
+
+.filters {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+select {
+    padding: 10px;
+    background: black;
+    color: #d4af37;
+    border: 2px solid #d4af37;
+}
+
+.podium {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 10px;
+    margin: 30px 0;
+}
+
+.podium-card {
+    width: 130px;
+    padding: 10px;
+    border-radius: 10px;
+    color: black;
+    font-weight: bold;
+}
+
+.first { background: gold; height: 160px; order: 2; }
+.second { background: silver; height: 130px; order: 1; }
+.third { background: peru; height: 110px; order: 3; }
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th {
+    background: gold;
+    color: black;
+    padding: 10px;
+}
+
+td {
+    padding: 10px;
+    border-bottom: 1px solid #333;
+}
+
+.highlight {
+    background: rgba(212,175,55,0.1);
+}
+</style>
 </head>
+
 <body>
 
 <div class="overlay">
-    <div class="container">
-        <div class="glass-panel">
-            <div class="header">
-                <h1>HAFTALIK ARŞİV</h1>
-                <p>Şehrin Efendileri sunucusunun şanlı kayıtları. Kaynaktaki veriler birebir yansıtılmaktadır.</p>
-            </div>
-            <div class="filters">
-                <div class="filter-group"><label>YIL</label><select id="yS" onchange="updateMonths()"><option value="">Seçiniz</option></select></div>
-                <div class="filter-group"><label>AY</label><select id="mS" onchange="updateWeeks()" disabled><option value="">Seçiniz</option></select></div>
-                <div class="filter-group"><label>HAFTA</label><select id="wS" onchange="fetchData(this.value)" disabled><option value="">Seçiniz</option></select></div>
-            </div>
-        </div>
+<div class="container">
 
-        <div id="dataArea">
-            <div id="podiumArea" class="podium"></div>
-            <div class="glass-panel" style="padding: 0; overflow-x: auto; border: none;">
-                <table class="ranking-table">
-                    <thead>
-                        <tr><th>Sira</th><th>Nick</th><th>Öldürme</th><th>Headshot</th><th>Ölümler</th><th>Mermiler</th><th>Hedef Tutturma</th></tr>
-                    </thead>
-                    <tbody id="rB"></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+<div class="glass-panel">
+<h1>HAFTALIK ARŞİV</h1>
+
+<div class="filters">
+<select id="yS"></select>
+<select id="mS" disabled></select>
+<select id="wS" disabled></select>
+</div>
+</div>
+
+<div id="dataArea" style="display:none;">
+<div id="podium" class="podium"></div>
+
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Nick</th>
+<th>Kills</th>
+<th>HS</th>
+<th>Deaths</th>
+<th>Damage</th>
+<th>Acc</th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+</div>
+
+</div>
 </div>
 
 <script>
-    const S_URL = "https://cyeklyjeszniowopawpc.supabase.co";
-    const S_KEY = "sb_publishable_RUhk34F8aZiNcgIDIZAwCA_8ZATrGh0";
-    const _c = supabase.createClient(S_URL, S_KEY);
+const client = supabase.createClient(
+    "https://cyeklyjeszniowopawpc.supabase.co",
+    "sb_publishable_RUhk34F8aZiNcgIDIZAwCA_8ZATrGh0"
+);
 
-    let db = [];
-    const mN = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
-    
-    const safe = (s) => String(s).replace(/[<>"']/g, '');
-    const fD = (s) => { const [y, m, d] = s.split('-'); return `${d}.${m}.${y}`; };
+let db = [];
 
-    async function init() {
-        try {
-            const { data, error } = await _c.from('weekly_top15').select('week_start, week_end').order('week_end', { ascending: false });
-            if (error || !data) return;
+// 🔒 XSS SAFE
+const safe = (s) => {
+    const div = document.createElement("div");
+    div.textContent = s;
+    return div.innerHTML;
+};
 
-            const map = new Map();
-            data.forEach(w => {
-                const k = w.week_start + "|" + w.week_end;
-                if (!map.has(k)) {
-                    const d = new Date(w.week_start);
-                    map.set(k, { s: w.week_start, y: d.getFullYear(), m: d.getMonth(), l: `${fD(w.week_start)} - ${fD(w.week_end)}` });
-                }
-            });
+function formatDate(s){
+    const [y,m,d]=s.split("-");
+    return `${d}.${m}.${y}`;
+}
 
-            db = Array.from(map.values());
-            const yS = document.getElementById('yS');
-            [...new Set(db.map(i => i.y))].forEach(y => {
-                const o = document.createElement('option'); o.value = y; o.textContent = y; yS.appendChild(o);
-            });
-        } catch (e) { console.error("Sistem başlatılamadı."); }
+/* ================= INIT ================= */
+
+async function init(){
+    const {data,error} = await client
+        .from("weekly_top15")
+        .select("week_start,week_end")
+        .order("week_end",{ascending:false});
+
+    if(error){
+        console.error(error);
+        return;
     }
 
-    function updateMonths() {
-        const y = document.getElementById('yS').value;
-        const mS = document.getElementById('mS');
-        const wS = document.getElementById('wS');
-        mS.innerHTML = '<option value="">Seçiniz</option>';
-        wS.innerHTML = '<option value="">Seçiniz</option>';
+    const map = new Map();
+
+    data.forEach(w=>{
+        const key = w.week_start+"|"+w.week_end;
+
+        if(!map.has(key)){
+            const d = new Date(w.week_start);
+
+            map.set(key,{
+                s:w.week_start,
+                y:d.getFullYear(),
+                m:d.getMonth(),
+                label:`${formatDate(w.week_start)} - ${formatDate(w.week_end)}`
+            });
+        }
+    });
+
+    db = Array.from(map.values());
+
+    const ySet = [...new Set(db.map(x=>x.y))];
+
+    const yS = document.getElementById("yS");
+
+    yS.innerHTML = `<option value="">Yıl</option>`;
+
+    ySet.forEach(y=>{
+        yS.innerHTML += `<option value="${y}">${y}</option>`;
+    });
+}
+
+/* ================= FILTER ================= */
+
+document.getElementById("yS").onchange = () => {
+    const y = yS.value;
+    mS.innerHTML = `<option value="">Ay</option>`;
+    wS.innerHTML = `<option value="">Hafta</option>`;
+    wS.disabled = true;
+
+    if(!y){
+        mS.disabled = true;
+        return;
+    }
+
+    const months = [...new Set(db.filter(d=>d.y==y).map(d=>d.m))];
+
+    months.forEach(m=>{
+        mS.innerHTML += `<option value="${m}">${m+1}</option>`;
+    });
+
+    mS.disabled = false;
+};
+
+document.getElementById("mS").onchange = () => {
+    const y = yS.value;
+    const m = mS.value;
+
+    wS.innerHTML = `<option value="">Hafta</option>`;
+
+    if(m===""){
         wS.disabled = true;
-        document.getElementById('dataArea').style.display = 'none';
-        if (!y) { mS.disabled = true; return; }
-        const ms = [...new Set(db.filter(d => d.y == y).map(d => d.m))].sort((a,b) => b-a);
-        ms.forEach(m => {
-            const o = document.createElement('option'); o.value = m; o.textContent = mN[m]; mS.appendChild(o);
-        });
-        mS.disabled = false;
+        return;
     }
 
-    function updateWeeks() {
-        const y = document.getElementById('yS').value;
-        const m = document.getElementById('mS').value;
-        const wS = document.getElementById('wS');
-        wS.innerHTML = '<option value="">Seçiniz</option>';
-        if (m === "") { wS.disabled = true; return; }
-        const ws = db.filter(d => d.y == y && d.m == m);
-        ws.forEach(w => {
-            const o = document.createElement('option'); o.value = w.s; o.textContent = w.l; wS.appendChild(o);
-        });
-        wS.disabled = false;
+    const weeks = db.filter(d=>d.y==y && d.m==m);
+
+    weeks.forEach(w=>{
+        wS.innerHTML += `<option value="${w.s}">${w.label}</option>`;
+    });
+
+    wS.disabled = false;
+};
+
+/* ================= FETCH ================= */
+
+document.getElementById("wS").onchange = async () => {
+    const s = wS.value;
+
+    if(!s) return;
+
+    const {data,error} = await client
+        .from("weekly_top15")
+        .select("*")
+        .eq("week_start",s)
+        .order("rank");
+
+    if(error){
+        console.error(error);
+        return;
     }
 
-    async function fetchData(s) {
-        if(!s) { document.getElementById('dataArea').style.display = 'none'; return; }
-        try {
-            const { data } = await _c.from('weekly_top15').select('*').eq('week_start', s).order('rank', { ascending: true });
-            if (data && data.length > 0) {
-                document.getElementById('dataArea').style.display = 'block';
-                renderPodium(data);
-                renderTable(data);
-            }
-        } catch (e) { console.error("Veri çekilemedi."); }
-    }
+    render(data);
+};
 
-    function renderPodium(data) {
-        const pA = document.getElementById('podiumArea');
-        pA.innerHTML = '';
-        
-        // 🛡️ Sıralama Garantisi
-        const sorted = [...data].sort((a, b) => (a.rank || 0) - (b.rank || 0));
-        const first = sorted[0] || null;
-        const second = sorted[1] || null;
-        const third = sorted[2] || null;
+/* ================= RENDER ================= */
 
-        const podiumItems = [
-            { data: second, class: 'second' },
-            { data: first, class: 'first' },
-            { data: third, class: 'third' }
-        ];
+function render(data){
+    document.getElementById("dataArea").style.display="block";
 
-        podiumItems.forEach(item => {
-            if (item.data) {
-                pA.innerHTML += `
-                    <div class="podium-card ${item.class}">
-                        <div style="font-size:1.8em">#${item.data.rank}</div>
-                        <div style="font-size:0.85em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap" title="${safe(item.data.nick)}">
-                            ${safe(item.data.nick)}
-                        </div>
-                        <div style="background:rgba(0,0,0,0.2); border-radius:4px; padding:2px 5px; margin-top:5px">
-                            ${item.data.kills || item.data.total_kills || 0} K
-                        </div>
-                    </div>`;
-            } else {
-                pA.innerHTML += `<div class="podium-card" style="visibility:hidden"></div>`;
-            }
-        });
-    }
+    renderPodium(data);
+    renderTable(data);
+}
 
-    function renderTable(data) {
-        // 🛡️ Tablo Sıralama ve Parantezli Görünüm Onarımı
-        const sortedData = [...data].sort((a, b) => (a.rank || 0) - (b.rank || 0));
-        document.getElementById('rB').innerHTML = sortedData.map(p => {
-            const hsPercent = p.hs_percent || 0;
-            const accuracy = p.accuracy || 0;
-            return `
-                <tr class="${p.rank <= 3 ? 'highlight' : ''}">
-                    <td><strong>${p.rank}</strong></td>
-                    <td>${safe(p.nick)}</td>
-                    <td>${p.kills || p.total_kills || 0}</td>
-                    <td>(${hsPercent}%)</td>
-                    <td>${p.deaths || p.total_deaths || 0}</td>
-                    <td>${p.mermiler || p.total_damage || 0}</td>
-                    <td>(${accuracy}%)</td>
-                </tr>
-            `;
-        }).join('');
-    }
+function renderPodium(data){
+    const p = document.getElementById("podium");
 
-    init();
+    const sorted = [...data].sort((a,b)=>a.rank-b.rank);
+
+    const list = [sorted[1], sorted[0], sorted[2]];
+
+    let html = "";
+
+    ["second","first","third"].forEach((cls,i)=>{
+        const d = list[i];
+
+        if(!d){
+            html += `<div class="podium-card"></div>`;
+            return;
+        }
+
+        html += `
+        <div class="podium-card ${cls}">
+            <div>#${d.rank}</div>
+            <div>${safe(d.nick)}</div>
+            <div>${d.kills}</div>
+        </div>`;
+    });
+
+    p.innerHTML = html;
+}
+
+function renderTable(data){
+    const sorted = [...data].sort((a,b)=>a.rank-b.rank);
+
+    const html = sorted.map(p=>`
+        <tr class="${p.rank<=3?'highlight':''}">
+            <td>${p.rank}</td>
+            <td>${safe(p.nick)}</td>
+            <td>${p.kills}</td>
+            <td>${p.hs_percent}%</td>
+            <td>${p.deaths}</td>
+            <td>${p.mermiler}</td>
+            <td>${p.accuracy}%</td>
+        </tr>
+    `).join("");
+
+    document.getElementById("tbody").innerHTML = html;
+}
+
+init();
 </script>
+
 </body>
 </html>
