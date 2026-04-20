@@ -59,12 +59,12 @@
             font-weight: bold;
         }
 
-        /* PODYUM AYARLARI */
+        /* PODYUM ÇÖZÜMÜ: Mobilde Nicklerin Sığması İçin */
         .podium {
             display: flex;
             justify-content: center;
             align-items: flex-end;
-            gap: 15px;
+            gap: 10px;
             margin: 30px 0;
         }
         .podium-card {
@@ -77,19 +77,24 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
+            overflow: hidden; /* Dışarı taşmayı engelle */
         }
         .podium-nick {
             font-size: 0.85rem;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            word-break: break-all; /* Çok uzun nickleri bölerek alt satıra atar */
             margin: 10px 0;
+            line-height: 1.2;
+            max-height: 3em;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
         }
         .first { background: gold; height: 160px; order: 2; border: 2px solid #fff; }
         .second { background: silver; height: 130px; order: 1; }
         .third { background: #cd7f32; height: 110px; order: 3; }
 
-        /* TABLO VE MOBİL STICKY ÇÖZÜMÜ */
+        /* TABLO VE SARI ÇİZGİ ÇÖZÜMÜ */
         .table-wrap { 
             overflow-x: auto; 
             border-radius: 12px; 
@@ -105,25 +110,25 @@
             font-size: 0.75rem; 
             position: sticky;
             top: 0;
-            z-index: 20;
+            z-index: 30;
         }
         td { padding: 10px; border-bottom: 1px solid #222; font-size: 0.9rem; }
 
-        /* NICK SÜTUNU SABİTLEME VE SIZINTI ÖNLEME */
+        /* NICK SÜTUNU: Sarı çizgi sorununu gölge (shadow) ile çözüyoruz */
         th:nth-child(2), td:nth-child(2) {
             position: sticky;
             left: 0;
-            background: #111 !important; /* Üst üste binmeyi önlemek için opak renk */
-            z-index: 15;
+            background: #111 !important; 
+            z-index: 25;
             min-width: 140px;
-            border-right: 2px solid #d4af37;
+            /* Border yerine shadow kullanarak sarı nokta efektini yok ediyoruz */
+            box-shadow: 2px 0 0 0 #d4af37; 
         }
-        th:nth-child(2) { z-index: 21; background: gold !important; }
+        th:nth-child(2) { z-index: 31; background: gold !important; box-shadow: 2px 0 0 0 gold; }
 
         tbody tr { cursor: pointer; transition: 0.2s; }
         tbody tr:hover td { background: rgba(212, 175, 55, 0.2) !important; }
         
-        /* SEÇİLİ SATIR VE STICKY UYUMU */
         .selected-row td { 
             background: rgba(212, 175, 55, 0.4) !important; 
             color: #fff !important;
@@ -131,7 +136,7 @@
             border-bottom: 1px solid gold;
         }
         .selected-row td:nth-child(2) {
-            background: #222 !important; /* Seçiliyken de arkasını göstermemesi için */
+            background: #222 !important; 
         }
 
         .highlight { background: rgba(212, 175, 55, 0.08); }
@@ -140,14 +145,14 @@
         @media (max-width: 768px) {
             h1 { font-size: 1.6rem; letter-spacing: 2px; }
             .archive-desc { font-size: 0.85rem; padding: 0 10px; }
-            .podium { gap: 8px; margin: 20px 0; }
-            .podium-card { width: 30%; padding: 10px 5px; }
-            .podium-nick { font-size: 0.75rem; }
-            .first { height: 130px; }
-            .second { height: 110px; }
+            .podium { gap: 5px; margin: 20px 0; }
+            .podium-card { width: 32%; padding: 10px 5px; min-height: 100px; }
+            .podium-nick { font-size: 0.7rem; }
+            .first { height: 140px; }
+            .second { height: 120px; }
             .third { height: 100px; }
             td, th { padding: 8px 5px; font-size: 0.75rem; }
-            th:nth-child(2), td:nth-child(2) { min-width: 110px; }
+            th:nth-child(2), td:nth-child(2) { min-width: 100px; }
         }
     </style>
 </head>
