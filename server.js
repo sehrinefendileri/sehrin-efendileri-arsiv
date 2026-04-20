@@ -33,9 +33,6 @@ let isArchiving = false;
 let suspiciousFlag = false;
 let lastGoodSnapshot = [];
 
-/* =========================
-   PARSERLAR
-========================= */
 function parseNumber(str) {
     if (!str) return 0;
     const parsed = parseInt(String(str).trim(), 10);
@@ -48,12 +45,8 @@ function parsePercent(str) {
     return match ? parseFloat(match[1]) : 0;
 }
 
-/* =========================
-   TARİH HESAPLAYICI (YENİ)
-========================= */
 function getWeekRange() {
     const d = new Date();
-    // Gece yarısı resetlendiğini varsayarsak, 1 gün geriye gidip o haftanın Pazartesi-Pazar'ını buluruz.
     d.setHours(d.getHours() - 24); 
     const day = d.getDay();
     const diffToMonday = d.getDate() - day + (day === 0 ? -6 : 1);
@@ -68,12 +61,8 @@ function getWeekRange() {
     };
 }
 
-/* =========================
-   HEADER MAPPING (TERMİNATÖR)
-========================= */
 function extractHeaders($, table) {
     const headers = {};
-    
     table.find('tr').each((rowIndex, row) => {
         if (headers.nick !== undefined) return; 
 
@@ -91,7 +80,6 @@ function extractHeaders($, table) {
             if (text.includes('sira') || text.includes('rank')) headers.rank = i;
         });
     });
-
     return headers;
 }
 
@@ -100,9 +88,6 @@ function generateWeekId(players, totalKills) {
     return crypto.createHash('md5').update(raw).digest('hex');
 }
 
-/* =========================
-   MAIN LOOP
-========================= */
 async function startMonitoring() {
     if (isRunning || isArchiving) return;
     isRunning = true;
@@ -175,10 +160,10 @@ async function startMonitoring() {
             return;
         }
 
+        // 🛡️ DÜZELTİLDİ: Sadece düşüşü kontrol ediyoruz. Kill'in 0'dan büyük olması şartını kaldırdık!
         const isHardDrop = log.total_kills_sum > 2000 && currentTotalKills < (log.total_kills_sum * 0.30);
         
-        // 🛡️ KRİTİK GÜVENLİK: Sadece gerçekten veri varsa ve drop olduysa arşivle. Sahte resetleri engeller.
-        if (isHardDrop && currentTotalKills > 0) {
+        if (isHardDrop) {
             if (!suspiciousFlag) {
                 console.log("⚠️ Şüpheli düşüş, bekleniyor...");
                 suspiciousFlag = true;
@@ -187,7 +172,6 @@ async function startMonitoring() {
             console.log("🏛️ RESET TESPİT EDİLDİ - ARŞİVLENİYOR");
             isArchiving = true;
             
-            // Hafta tarihlerini al
             const weekRange = getWeekRange();
             
             if (lastGoodSnapshot.length >= 5) {
@@ -220,9 +204,6 @@ async function startMonitoring() {
     }
 }
 
-/* =========================
-   ARCHIVE (TARİHLER EKLENDİ)
-========================= */
 async function archiveTheWeek(snapshotData, oldTotalKills, currentKills, weekRange) {
     try {
         const weekId = generateWeekId(snapshotData, oldTotalKills);
@@ -231,8 +212,8 @@ async function archiveTheWeek(snapshotData, oldTotalKills, currentKills, weekRan
 
         const archiveRows = snapshotData.map((p, index) => ({
             week_id: weekId,
-            week_start: weekRange.start, // 🛡️ TARİHLER EKLENDİ
-            week_end: weekRange.end,     // 🛡️ TARİHLER EKLENDİ
+            week_start: weekRange.start, 
+            week_end: weekRange.end,     
             rank: p.rank || index + 1, 
             nick: p.nick, 
             kills: p.total_kills, 
