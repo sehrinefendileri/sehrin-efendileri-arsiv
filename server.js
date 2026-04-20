@@ -34,7 +34,7 @@ let suspiciousFlag = false;
 let lastGoodSnapshot = [];
 
 /* =========================
-   PARSERLAR (KUSURSUZ)
+   PARSERLAR
 ========================= */
 function parseNumber(str) {
     if (!str) return 0;
@@ -49,17 +49,35 @@ function parsePercent(str) {
 }
 
 /* =========================
-   HEADER MAPPING (TERMİNATÖR MODU)
+   TARİH HESAPLAYICI (YENİ)
+========================= */
+function getWeekRange() {
+    const d = new Date();
+    // Gece yarısı resetlendiğini varsayarsak, 1 gün geriye gidip o haftanın Pazartesi-Pazar'ını buluruz.
+    d.setHours(d.getHours() - 24); 
+    const day = d.getDay();
+    const diffToMonday = d.getDate() - day + (day === 0 ? -6 : 1);
+    
+    const monday = new Date(d.setDate(diffToMonday));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    
+    return {
+        start: monday.toISOString().split('T')[0],
+        end: sunday.toISOString().split('T')[0]
+    };
+}
+
+/* =========================
+   HEADER MAPPING (TERMİNATÖR)
 ========================= */
 function extractHeaders($, table) {
     const headers = {};
     
-    // Sadece 1. satıra değil, başlıkları bulana kadar tüm satırlara bakar
     table.find('tr').each((rowIndex, row) => {
-        if (headers.nick !== undefined) return; // Başlıkları bulduysak aramayı bırak
+        if (headers.nick !== undefined) return; 
 
         $(row).find('td, th').each((i, el) => {
-            // Türkçe karakterleri kökten temizleyip sıfır hata bırakıyoruz
             let text = $(el).text().toLowerCase()
                 .replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ü/g, 'u')
                 .replace(/ş/g, 's').replace(/ç/g, 'c').replace(/ğ/g, 'g').trim();
@@ -111,10 +129,9 @@ async function startMonitoring() {
 
         table.find('tr').each((i, el) => {
             const cols = $(el).find('td');
-            if (cols.length < 5) return; // Eksik sütunlu satırları geç
+            if (cols.length < 5) return; 
 
             const nick = $(cols[headers.nick]).text().trim();
-            // Eğer okuduğu satır "NICK" başlığıysa (header satırıysa) kaydetmeden geç
             if (!nick || nick.length < 2 || nick.toUpperCase() === 'NICK') return;
 
             const rankVal = parseNumber($(cols[headers.rank]).text());
@@ -159,16 +176,22 @@ async function startMonitoring() {
         }
 
         const isHardDrop = log.total_kills_sum > 2000 && currentTotalKills < (log.total_kills_sum * 0.30);
-        if (isHardDrop) {
+        
+        // 🛡️ KRİTİK GÜVENLİK: Sadece gerçekten veri varsa ve drop olduysa arşivle. Sahte resetleri engeller.
+        if (isHardDrop && currentTotalKills > 0) {
             if (!suspiciousFlag) {
                 console.log("⚠️ Şüpheli düşüş, bekleniyor...");
                 suspiciousFlag = true;
                 return;
             }
-            console.log("🏛️ RESET TESPİT EDİLDİ");
+            console.log("🏛️ RESET TESPİT EDİLDİ - ARŞİVLENİYOR");
             isArchiving = true;
+            
+            // Hafta tarihlerini al
+            const weekRange = getWeekRange();
+            
             if (lastGoodSnapshot.length >= 5) {
-                await archiveTheWeek(lastGoodSnapshot, log.total_kills_sum, currentTotalKills);
+                await archiveTheWeek(lastGoodSnapshot, log.total_kills_sum, currentTotalKills, weekRange);
             }
             lastGoodSnapshot = players.map(p => ({ ...p }));
             suspiciousFlag = false;
@@ -198,9 +221,9 @@ async function startMonitoring() {
 }
 
 /* =========================
-   ARCHIVE
+   ARCHIVE (TARİHLER EKLENDİ)
 ========================= */
-async function archiveTheWeek(snapshotData, oldTotalKills, currentKills) {
+async function archiveTheWeek(snapshotData, oldTotalKills, currentKills, weekRange) {
     try {
         const weekId = generateWeekId(snapshotData, oldTotalKills);
         const { data: exists } = await supabase.from('weekly_top15').select('week_id').eq('week_id', weekId).limit(1);
@@ -208,8 +231,15 @@ async function archiveTheWeek(snapshotData, oldTotalKills, currentKills) {
 
         const archiveRows = snapshotData.map((p, index) => ({
             week_id: weekId,
-            rank: p.rank || index + 1, nick: p.nick, kills: p.total_kills, deaths: p.total_deaths,
-            mermiler: p.total_damage, hs_percent: p.hs_percent, accuracy: p.accuracy
+            week_start: weekRange.start, // 🛡️ TARİHLER EKLENDİ
+            week_end: weekRange.end,     // 🛡️ TARİHLER EKLENDİ
+            rank: p.rank || index + 1, 
+            nick: p.nick, 
+            kills: p.total_kills, 
+            deaths: p.total_deaths,
+            mermiler: p.total_damage, 
+            hs_percent: p.hs_percent, 
+            accuracy: p.accuracy
         }));
 
         const { error } = await supabase.from('weekly_top15').insert(archiveRows);
@@ -220,7 +250,7 @@ async function archiveTheWeek(snapshotData, oldTotalKills, currentKills) {
                 from: '"Arşiv Botu" <leventistemi@hotmail.com>',
                 to: "leventistemi@hotmail.com",
                 subject: "🛡️ Hafta Mühürlendi!",
-                text: `Haftalık arşiv başarıyla kaydedildi.\nWeek ID: ${weekId}`
+                text: `Haftalık arşiv başarıyla kaydedildi.\nWeek ID: ${weekId}\nTarih: ${weekRange.start} - ${weekRange.end}`
             }).catch(() => {});
         }
     } catch (err) { console.error("❌ Arşiv Hatası:", err.message); }
