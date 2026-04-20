@@ -34,12 +34,11 @@
             box-shadow: 0 8px 32px rgba(0,0,0,0.5);
         }
         
-        /* BAŞLIK VE AÇIKLAMA DÜZENLEMESİ */
         h1 { 
             color: #d4af37; 
             text-transform: uppercase; 
             letter-spacing: 5px; 
-            font-size: 2.8rem; /* Masaüstünde daha büyük başlık */
+            font-size: 2.8rem;
             margin: 10px 0;
         }
         .archive-desc {
@@ -85,7 +84,6 @@
         .second { background: silver; height: 130px; order: 1; }
         .third { background: #cd7f32; height: 110px; order: 3; }
 
-        /* TABLO SIKIŞTIRMA VE MOBİL SABİTLEME */
         .table-wrap { 
             overflow-x: auto; 
             border-radius: 12px; 
@@ -105,7 +103,6 @@
         }
         td { padding: 10px; border-bottom: 1px solid #222; font-size: 0.9rem; }
 
-        /* NİCK SÜTUNUNU MOBİLDE SABİTLEME */
         th:nth-child(2), td:nth-child(2) {
             position: sticky;
             left: 0;
@@ -116,7 +113,6 @@
         }
         th:nth-child(2) { z-index: 11; background: gold; }
 
-        /* HOVER VE SEÇİLME EFEKTİ */
         tbody tr { cursor: pointer; transition: 0.2s; }
         tbody tr:hover td { background: rgba(212, 175, 55, 0.2) !important; }
         
@@ -129,7 +125,6 @@
 
         .highlight { background: rgba(212, 175, 55, 0.08); }
 
-        /* MOBİL ÖZEL AYARLAR */
         @media (max-width: 768px) {
             h1 { font-size: 1.6rem; letter-spacing: 2px; }
             .archive-desc { font-size: 0.9rem; }
@@ -188,6 +183,13 @@
         return div.innerHTML;
     };
 
+    // Tarihi GG.AA.YYYY formatına çeviren yardımcı fonksiyon
+    const formatDate = (dateStr) => {
+        if(!dateStr) return "";
+        const [y, m, d] = dateStr.split("-");
+        return `${d}.${m}.${y}`;
+    };
+
     async function init(){
         const {data, error} = await client.from("weekly_top15").select("week_start,week_end").order("week_end", {ascending: false});
         if(error) return console.error(error);
@@ -196,7 +198,8 @@
             const key = w.week_start + "|" + w.week_end;
             if(!map.has(key)){
                 const d = new Date(w.week_start);
-                map.set(key, { s: w.week_start, y: d.getFullYear(), m: d.getMonth(), label: `${w.week_start} - ${w.week_end}` });
+                // Label kısmını GG.AA.YYYY - GG.AA.YYYY yaptık
+                map.set(key, { s: w.week_start, y: d.getFullYear(), m: d.getMonth(), label: `${formatDate(w.week_start)} - ${formatDate(w.week_end)}` });
             }
         });
         db = Array.from(map.values());
@@ -239,7 +242,6 @@
         render(data);
     };
 
-    // Tıklanan satırı işaretleme fonksiyonu
     function markRow(row) {
         document.querySelectorAll('tr').forEach(r => r.classList.remove('selected-row'));
         row.classList.add('selected-row');
