@@ -33,7 +33,6 @@
             margin-bottom: 20px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.5);
         }
-        
         h1 { 
             color: #d4af37; 
             text-transform: uppercase; 
@@ -47,7 +46,6 @@
             margin-bottom: 20px;
             line-height: 1.6;
         }
-
         .filters { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
         select {
             padding: 10px 20px;
@@ -58,8 +56,6 @@
             cursor: pointer;
             font-weight: bold;
         }
-
-        /* PODYUM ÇÖZÜMÜ: Mobilde Nicklerin Sığması İçin */
         .podium {
             display: flex;
             justify-content: center;
@@ -77,11 +73,11 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
-            overflow: hidden; /* Dışarı taşmayı engelle */
+            overflow: hidden;
         }
         .podium-nick {
             font-size: 0.85rem;
-            word-break: break-all; /* Çok uzun nickleri bölerek alt satıra atar */
+            word-break: break-all;
             margin: 10px 0;
             line-height: 1.2;
             max-height: 3em;
@@ -94,7 +90,6 @@
         .second { background: silver; height: 130px; order: 1; }
         .third { background: #cd7f32; height: 110px; order: 3; }
 
-        /* TABLO VE SARI ÇİZGİ ÇÖZÜMÜ */
         .table-wrap { 
             overflow-x: auto; 
             border-radius: 12px; 
@@ -114,14 +109,12 @@
         }
         td { padding: 10px; border-bottom: 1px solid #222; font-size: 0.9rem; }
 
-        /* NICK SÜTUNU: Sarı çizgi sorununu gölge (shadow) ile çözüyoruz */
         th:nth-child(2), td:nth-child(2) {
             position: sticky;
             left: 0;
             background: #111 !important; 
             z-index: 25;
             min-width: 140px;
-            /* Border yerine shadow kullanarak sarı nokta efektini yok ediyoruz */
             box-shadow: 2px 0 0 0 #d4af37; 
         }
         th:nth-child(2) { z-index: 31; background: gold !important; box-shadow: 2px 0 0 0 gold; }
@@ -135,13 +128,10 @@
             border-top: 1px solid gold;
             border-bottom: 1px solid gold;
         }
-        .selected-row td:nth-child(2) {
-            background: #222 !important; 
-        }
+        .selected-row td:nth-child(2) { background: #222 !important; }
 
         .highlight { background: rgba(212, 175, 55, 0.08); }
 
-        /* MOBİL ÖZEL AYARLAR */
         @media (max-width: 768px) {
             h1 { font-size: 1.6rem; letter-spacing: 2px; }
             .archive-desc { font-size: 0.85rem; padding: 0 10px; }
@@ -209,9 +199,26 @@
         return `${d}.${m}.${y}`;
     };
 
+    // Menü Seçeneklerini Ekrana Basan Fonksiyon
+    function renderFilters() {
+        const yS = document.getElementById("yS");
+        const currentYear = yS.value;
+        yS.innerHTML = `<option value="">Yıl</option>`;
+        [...new Set(db.map(x => x.y))].forEach(y => { yS.innerHTML += `<option value="${y}">${y}</option>`; });
+        if(currentYear) yS.value = currentYear;
+    }
+
     async function init(){
+        // CACHE: Önce hafızadaki menüyü yükle
+        const cachedMenu = localStorage.getItem('archive_menu');
+        if(cachedMenu) {
+            db = JSON.parse(cachedMenu);
+            renderFilters();
+        }
+
         const {data, error} = await client.from("weekly_top15").select("week_start,week_end").order("week_end", {ascending: false});
-        if(error) return console.error(error);
+        if(error) return;
+        
         const map = new Map();
         data.forEach(w => {
             const key = w.week_start + "|" + w.week_end;
@@ -221,9 +228,10 @@
             }
         });
         db = Array.from(map.values());
-        const yS = document.getElementById("yS");
-        yS.innerHTML = `<option value="">Yıl</option>`;
-        [...new Set(db.map(x => x.y))].forEach(y => { yS.innerHTML += `<option value="${y}">${y}</option>`; });
+        
+        // Yeni menüyü hafızaya kaydet ve güncelle
+        localStorage.setItem('archive_menu', JSON.stringify(db));
+        renderFilters();
     }
 
     const yS = document.getElementById("yS"), mS = document.getElementById("mS"), wS = document.getElementById("wS");
@@ -255,9 +263,19 @@
     wS.onchange = async () => {
         const s = wS.value;
         if(!s) return;
+
+        // CACHE: Bu haftanın verisi daha önce çekilmiş mi?
+        const cacheKey = 'week_data_' + s;
+        const cachedData = localStorage.getItem(cacheKey);
+        if(cachedData) {
+            render(JSON.parse(cachedData));
+        }
+
         const {data, error} = await client.from("weekly_top15").select("*").eq("week_start", s).order("rank");
-        if(error) return;
-        render(data);
+        if(!error) {
+            localStorage.setItem(cacheKey, JSON.stringify(data));
+            render(data);
+        }
     };
 
     function markRow(row) {
