@@ -58,6 +58,8 @@
             cursor: pointer;
             font-weight: bold;
         }
+
+        /* PODYUM AYARLARI */
         .podium {
             display: flex;
             justify-content: center;
@@ -72,6 +74,9 @@
             color: black;
             font-weight: bold;
             box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
         .podium-nick {
             font-size: 0.85rem;
@@ -84,6 +89,7 @@
         .second { background: silver; height: 130px; order: 1; }
         .third { background: #cd7f32; height: 110px; order: 3; }
 
+        /* TABLO VE MOBİL STICKY ÇÖZÜMÜ */
         .table-wrap { 
             overflow-x: auto; 
             border-radius: 12px; 
@@ -99,40 +105,49 @@
             font-size: 0.75rem; 
             position: sticky;
             top: 0;
-            z-index: 10;
+            z-index: 20;
         }
         td { padding: 10px; border-bottom: 1px solid #222; font-size: 0.9rem; }
 
+        /* NICK SÜTUNU SABİTLEME VE SIZINTI ÖNLEME */
         th:nth-child(2), td:nth-child(2) {
             position: sticky;
             left: 0;
-            background: #111;
-            z-index: 5;
+            background: #111 !important; /* Üst üste binmeyi önlemek için opak renk */
+            z-index: 15;
             min-width: 140px;
-            border-right: 1px solid #d4af37;
+            border-right: 2px solid #d4af37;
         }
-        th:nth-child(2) { z-index: 11; background: gold; }
+        th:nth-child(2) { z-index: 21; background: gold !important; }
 
         tbody tr { cursor: pointer; transition: 0.2s; }
         tbody tr:hover td { background: rgba(212, 175, 55, 0.2) !important; }
         
+        /* SEÇİLİ SATIR VE STICKY UYUMU */
         .selected-row td { 
             background: rgba(212, 175, 55, 0.4) !important; 
             color: #fff !important;
             border-top: 1px solid gold;
             border-bottom: 1px solid gold;
         }
+        .selected-row td:nth-child(2) {
+            background: #222 !important; /* Seçiliyken de arkasını göstermemesi için */
+        }
 
         .highlight { background: rgba(212, 175, 55, 0.08); }
 
+        /* MOBİL ÖZEL AYARLAR */
         @media (max-width: 768px) {
             h1 { font-size: 1.6rem; letter-spacing: 2px; }
-            .archive-desc { font-size: 0.9rem; }
-            .podium-card { width: 100px; padding: 10px; }
+            .archive-desc { font-size: 0.85rem; padding: 0 10px; }
+            .podium { gap: 8px; margin: 20px 0; }
+            .podium-card { width: 30%; padding: 10px 5px; }
+            .podium-nick { font-size: 0.75rem; }
             .first { height: 130px; }
             .second { height: 110px; }
             .third { height: 100px; }
-            td, th { padding: 8px 5px; font-size: 0.8rem; }
+            td, th { padding: 8px 5px; font-size: 0.75rem; }
+            th:nth-child(2), td:nth-child(2) { min-width: 110px; }
         }
     </style>
 </head>
@@ -183,7 +198,6 @@
         return div.innerHTML;
     };
 
-    // Tarihi GG.AA.YYYY formatına çeviren yardımcı fonksiyon
     const formatDate = (dateStr) => {
         if(!dateStr) return "";
         const [y, m, d] = dateStr.split("-");
@@ -198,7 +212,6 @@
             const key = w.week_start + "|" + w.week_end;
             if(!map.has(key)){
                 const d = new Date(w.week_start);
-                // Label kısmını GG.AA.YYYY - GG.AA.YYYY yaptık
                 map.set(key, { s: w.week_start, y: d.getFullYear(), m: d.getMonth(), label: `${formatDate(w.week_start)} - ${formatDate(w.week_end)}` });
             }
         });
@@ -254,7 +267,7 @@
         ["second", "first", "third"].forEach((cls, i) => {
             const d = list[i];
             if(!d){ phtml += `<div class="podium-card" style="visibility:hidden"></div>`; return; }
-            phtml += `<div class="podium-card ${cls}"><div style="font-size:1.2rem">#${d.rank}</div><div class="podium-nick">${safe(d.nick)}</div><div style="font-size:1rem">${d.kills} Kills</div></div>`;
+            phtml += `<div class="podium-card ${cls}"><div style="font-size:1.1rem">#${d.rank}</div><div class="podium-nick">${safe(d.nick)}</div><div style="font-size:0.9rem">${d.kills} Kills</div></div>`;
         });
         document.getElementById("podium").innerHTML = phtml;
         
