@@ -2,23 +2,22 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Şehrin Efendileri | Haftalık Arşiv</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body {
             font-family: 'Segoe UI', sans-serif;
             margin: 0;
-            /* YENİ: Arka plan direkt bg.jpg dosyasından çekiliyor */
             background: #000 url('bg.jpg') no-repeat center center fixed;
             background-size: cover;
             color: #f0f0f0;
+            overflow-x: hidden;
         }
         .overlay {
-            /* Karanlık perdesini %78'den %60'a çektim ki resim patlasın */
             background: rgba(0, 0, 0, 0.60);
             min-height: 100vh;
-            padding: 40px 0;
+            padding: 20px 0;
         }
         .container {
             width: 95%;
@@ -27,14 +26,29 @@
             text-align: center;
         }
         .glass-panel {
-            background: rgba(20, 20, 20, 0.6);
+            background: rgba(20, 20, 20, 0.8);
             border: 1px solid rgba(212, 175, 55, 0.4);
             border-radius: 12px;
             padding: 25px;
             margin-bottom: 20px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.5);
         }
-        h1 { color: #d4af37; text-transform: uppercase; letter-spacing: 3px; }
+        
+        /* BAŞLIK VE AÇIKLAMA DÜZENLEMESİ */
+        h1 { 
+            color: #d4af37; 
+            text-transform: uppercase; 
+            letter-spacing: 5px; 
+            font-size: 2.8rem; /* Masaüstünde daha büyük başlık */
+            margin: 10px 0;
+        }
+        .archive-desc {
+            color: #ccc;
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
         .filters { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
         select {
             padding: 10px 20px;
@@ -50,7 +64,7 @@
             justify-content: center;
             align-items: flex-end;
             gap: 15px;
-            margin: 40px 0;
+            margin: 30px 0;
         }
         .podium-card {
             width: 150px;
@@ -67,15 +81,64 @@
             text-overflow: ellipsis;
             margin: 10px 0;
         }
-        .first { background: gold; height: 170px; order: 2; border: 2px solid #fff; }
-        .second { background: silver; height: 140px; order: 1; }
-        .third { background: #cd7f32; height: 120px; order: 3; }
+        .first { background: gold; height: 160px; order: 2; border: 2px solid #fff; }
+        .second { background: silver; height: 130px; order: 1; }
+        .third { background: #cd7f32; height: 110px; order: 3; }
 
-        .table-wrap { overflow-x: auto; border-radius: 12px; }
-        table { width: 100%; border-collapse: collapse; background: rgba(0,0,0,0.7); }
-        th { background: gold; color: black; padding: 15px; text-transform: uppercase; font-size: 0.8rem; }
-        td { padding: 15px; border-bottom: 1px solid #333; }
-        .highlight { background: rgba(212, 175, 55, 0.15); }
+        /* TABLO SIKIŞTIRMA VE MOBİL SABİTLEME */
+        .table-wrap { 
+            overflow-x: auto; 
+            border-radius: 12px; 
+            background: rgba(0,0,0,0.8);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+        }
+        table { width: 100%; border-collapse: collapse; min-width: 800px; }
+        th { 
+            background: gold; 
+            color: black; 
+            padding: 12px 10px; 
+            text-transform: uppercase; 
+            font-size: 0.75rem; 
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        td { padding: 10px; border-bottom: 1px solid #222; font-size: 0.9rem; }
+
+        /* NİCK SÜTUNUNU MOBİLDE SABİTLEME */
+        th:nth-child(2), td:nth-child(2) {
+            position: sticky;
+            left: 0;
+            background: #111;
+            z-index: 5;
+            min-width: 140px;
+            border-right: 1px solid #d4af37;
+        }
+        th:nth-child(2) { z-index: 11; background: gold; }
+
+        /* HOVER VE SEÇİLME EFEKTİ */
+        tbody tr { cursor: pointer; transition: 0.2s; }
+        tbody tr:hover td { background: rgba(212, 175, 55, 0.2) !important; }
+        
+        .selected-row td { 
+            background: rgba(212, 175, 55, 0.4) !important; 
+            color: #fff !important;
+            border-top: 1px solid gold;
+            border-bottom: 1px solid gold;
+        }
+
+        .highlight { background: rgba(212, 175, 55, 0.08); }
+
+        /* MOBİL ÖZEL AYARLAR */
+        @media (max-width: 768px) {
+            h1 { font-size: 1.6rem; letter-spacing: 2px; }
+            .archive-desc { font-size: 0.9rem; }
+            .podium-card { width: 100px; padding: 10px; }
+            .first { height: 130px; }
+            .second { height: 110px; }
+            .third { height: 100px; }
+            td, th { padding: 8px 5px; font-size: 0.8rem; }
+        }
     </style>
 </head>
 <body>
@@ -83,6 +146,10 @@
     <div class="container">
         <div class="glass-panel">
             <h1>ŞEHRİN EFENDİLERİ ARŞİV</h1>
+            <p class="archive-desc">
+                Bu sayfada geçmiş haftalara ait Top 15 listeleri yer alır.<br>
+                Aşağıdan tarih aralığı seçerek verilere ulaşabilirsiniz.
+            </p>
             <div class="filters">
                 <select id="yS"></select>
                 <select id="mS" disabled></select>
@@ -101,7 +168,7 @@
                             <th>HeadShot</th>
                             <th>Ölümler</th>
                             <th>Mermiler</th>
-                            <th>Hedef Tutturma</th>
+                            <th>Hedef</th>
                         </tr>
                     </thead>
                     <tbody id="tbody"></tbody>
@@ -172,9 +239,14 @@
         render(data);
     };
 
+    // Tıklanan satırı işaretleme fonksiyonu
+    function markRow(row) {
+        document.querySelectorAll('tr').forEach(r => r.classList.remove('selected-row'));
+        row.classList.add('selected-row');
+    }
+
     function render(data){
         const sorted = [...data].sort((a,b) => (Number(a.rank) || 99) - (Number(b.rank) || 99));
-        // Podyum
         const list = [sorted[1], sorted[0], sorted[2]];
         let phtml = "";
         ["second", "first", "third"].forEach((cls, i) => {
@@ -183,11 +255,11 @@
             phtml += `<div class="podium-card ${cls}"><div style="font-size:1.2rem">#${d.rank}</div><div class="podium-nick">${safe(d.nick)}</div><div style="font-size:1rem">${d.kills} Kills</div></div>`;
         });
         document.getElementById("podium").innerHTML = phtml;
-        // Tablo
+        
         document.getElementById("tbody").innerHTML = sorted.map(p => `
-            <tr class="${p.rank <= 3 ? 'highlight' : ''}">
+            <tr class="${p.rank <= 3 ? 'highlight' : ''}" onclick="markRow(this)">
                 <td style="font-weight:bold; color:#d4af37">#${p.rank}</td>
-                <td style="text-align:left; padding-left:25px;">${safe(p.nick)}</td>
+                <td style="text-align:left; padding-left:15px;">${safe(p.nick)}</td>
                 <td>${p.kills || 0}</td>
                 <td>${p.hs_percent || 0}%</td>
                 <td>${p.deaths || 0}</td>
