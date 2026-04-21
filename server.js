@@ -18,6 +18,19 @@ const port = process.env.PORT || 10000;
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const PANEL_URL = "https://panel25.oyunyoneticisi.com/rank/index.php?ip=95.173.173.81";
 
+// 🛡️ GÜVENLİK KATMANI: x-api-key Kontrolü
+app.use((req, res, next) => {
+    // Ana sayfa ve resim/css gibi statik dosyaların açılmasına izin ver
+    if (req.path === '/' || req.path.includes('.')) return next();
+
+    // Veri çekme ve kritik işlemler için anahtar kontrolü yap
+    const apiKey = req.headers['x-api-key'] || req.query.api_key;
+    if (apiKey !== process.env.X_API_KEY) {
+        return res.status(403).send("Erişim Reddedildi: Geçersiz API Anahtarı");
+    }
+    next();
+});
+
 app.use(express.static(__dirname));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -160,7 +173,6 @@ async function startMonitoring() {
             return;
         }
 
-        // 🛡️ DÜZELTİLDİ: Sadece düşüşü kontrol ediyoruz. Kill'in 0'dan büyük olması şartını kaldırdık!
         const isHardDrop = log.total_kills_sum > 2000 && currentTotalKills < (log.total_kills_sum * 0.30);
         
         if (isHardDrop) {
