@@ -18,19 +18,19 @@ const port = process.env.PORT || 10000;
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const PANEL_URL = "https://panel25.oyunyoneticisi.com/rank/index.php?ip=95.173.173.81";
 
-// 🛡️ GÜVENLİK KATMANI: x-api-key Kontrolü
+// 🛡️ GÜVENLİK KATMANI: Sadece Gizli Header (x-api-key) Kontrolü
 app.use((req, res, next) => {
-    // 1. Ana sayfa (/) ve statik dosyaların (.js, .css, .jpg vb.) erişimine izin ver
+    // 1. Ana sayfa (/) ve statik dosyaların (.js, .css, .jpg vb.) erişimine her zaman izin ver
     if (req.path === '/' || req.path.includes('.')) {
         return next();
     }
 
-    // 2. Diğer tüm yollarda (Cron, Better Stack vb.) anahtar kontrolü yap
-    // Hem Header'dan hem de URL'den (küçük/büyük harf duyarlı) anahtarı yakalar
-    const apiKey = req.headers['x-api-key'] || req.query.api_key || req.query.X_API_KEY;
+    // 2. SADECE Header (x-api-key) üzerinden gelen anahtarı kontrol et
+    // Güvenlik gereği URL üzerinden gelen anahtarlar (?api_key=...) artık reddedilir.
+    const apiKey = req.headers['x-api-key'];
 
     if (apiKey !== process.env.X_API_KEY) {
-        return res.status(403).send("Erişim Reddedildi: Geçersiz API Anahtarı");
+        return res.status(403).send("Erişim Reddedildi: Sadece Yetkili Bekçiler Girebilir.");
     }
     next();
 });
