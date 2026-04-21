@@ -20,11 +20,15 @@ const PANEL_URL = "https://panel25.oyunyoneticisi.com/rank/index.php?ip=95.173.1
 
 // 🛡️ GÜVENLİK KATMANI: x-api-key Kontrolü
 app.use((req, res, next) => {
-    // Ana sayfa ve resim/css gibi statik dosyaların açılmasına izin ver
-    if (req.path === '/' || req.path.includes('.')) return next();
+    // 1. Ana sayfa (/) ve statik dosyaların (.js, .css, .jpg vb.) erişimine izin ver
+    if (req.path === '/' || req.path.includes('.')) {
+        return next();
+    }
 
-    // Veri çekme ve kritik işlemler için anahtar kontrolü yap
-    const apiKey = req.headers['x-api-key'] || req.query.api_key;
+    // 2. Diğer tüm yollarda (Cron, Better Stack vb.) anahtar kontrolü yap
+    // Hem Header'dan hem de URL'den (küçük/büyük harf duyarlı) anahtarı yakalar
+    const apiKey = req.headers['x-api-key'] || req.query.api_key || req.query.X_API_KEY;
+
     if (apiKey !== process.env.X_API_KEY) {
         return res.status(403).send("Erişim Reddedildi: Geçersiz API Anahtarı");
     }
