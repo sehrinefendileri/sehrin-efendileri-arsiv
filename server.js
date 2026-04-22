@@ -12,18 +12,22 @@ import rateLimit from 'express-rate-limit';
 
 dotenv.config();
 
-// 🛡️ 1. GÜVENLİK: ENV Kontrolü (ChatGPT'nin son uyarısı)
+// 🛡️ 1. GÜVENLİK: ENV Kontrolü
 const requiredEnv = ['SUPABASE_URL', 'SUPABASE_KEY', 'X_API_KEY', 'EMAIL_PASS'];
 requiredEnv.forEach(key => {
     if (!process.env[key]) {
         console.error(`❌ KRİTİK HATA: Environment Variable [${key}] eksik!`);
-        process.exit(1); // Sistem eksik anahtarla çalışmasın, kapansın.
+        process.exit(1); 
     }
 });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
+
+// 🛡️ PROXY AYARI: Render üzerindeki Rate Limit uyarısını çözen kritik satır
+app.set('trust proxy', 1);
+
 const port = process.env.PORT || 10000;
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
@@ -38,14 +42,12 @@ const limiter = rateLimit({
 
 // 🛡️ 3. GÜVENLİK: Nihai Middleware (Bekçi)
 app.use((req, res, next) => {
-    // /status ile başlamayan tüm GET isteklerini statik dosya olarak değerlendir
     const isApiRequest = req.path.startsWith('/status');
     
     if (req.method === 'GET' && !isApiRequest) {
         return next();
     }
     
-    // API veya durum kontrolü için X_API_KEY doğrula
     const apiKey = req.headers['x-api-key'];
     if (apiKey === process.env.X_API_KEY) {
         return next();
@@ -54,9 +56,7 @@ app.use((req, res, next) => {
     return res.status(403).json({ error: "Erişim Reddedildi: Geçersiz veya eksik anahtar." });
 });
 
-// Rate limit sadece /status için aktif
 app.use('/status', limiter);
-
 app.use(express.static(path.join(__dirname, 'public')));
 
 const transporter = nodemailer.createTransport({
