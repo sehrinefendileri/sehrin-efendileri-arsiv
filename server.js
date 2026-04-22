@@ -18,18 +18,22 @@ const port = process.env.PORT || 10000;
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const PANEL_URL = "https://panel25.oyunyoneticisi.com/rank/index.php?ip=95.173.173.81";
 
-// 🛡️ GÜVENLİK KATMANI: Sadece Gizli Header (x-api-key) Kontrolü
+// 🛡️ GÜVENLİK KATMANI: Gelişmiş Header Kontrolü
 app.use((req, res, next) => {
     // 1. Ana sayfa (/) ve statik dosyaların (.js, .css, .jpg vb.) erişimine her zaman izin ver
     if (req.path === '/' || req.path.includes('.')) {
         return next();
     }
 
-    // 2. SADECE Header (x-api-key) üzerinden gelen anahtarı kontrol et
-    // Güvenlik gereği URL üzerinden gelen anahtarlar (?api_key=...) artık reddedilir.
-    const apiKey = req.headers['x-api-key'];
+    // 2. Bekçinin gönderdiği anahtarı al (Express otomatik olarak küçük harfe çevirir)
+    // Hem tireli hem alt tireli gönderimleri destekler.
+    const apiKey = req.headers['x-api-key'] || req.headers['x_api_key'];
 
-    if (apiKey !== process.env.X_API_KEY) {
+    // 3. Render üzerindeki gizli anahtarınla karşılaştır
+    // Not: Render panelinde hangi ismi verdiysen (tireli veya alt tireli) sistem onu eşleştirir.
+    const secretKey = process.env['x-api-key'] || process.env.X_API_KEY;
+
+    if (!apiKey || apiKey !== secretKey) {
         return res.status(403).send("Erişim Reddedildi: Sadece Yetkili Bekçiler Girebilir.");
     }
     next();
@@ -229,7 +233,7 @@ async function archiveTheWeek(snapshotData, oldTotalKills, currentKills, weekRan
         const archiveRows = snapshotData.map((p, index) => ({
             week_id: weekId,
             week_start: weekRange.start, 
-            week_end: weekRange.end,     
+            week_end: weekRange.end,      
             rank: p.rank || index + 1, 
             nick: p.nick, 
             kills: p.total_kills, 
