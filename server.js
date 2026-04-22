@@ -265,6 +265,16 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// 🚪 BEKÇİ KAPISI: Cron-job'un "404" almaması için eklenen status rotası
+app.get('/status', (req, res) => {
+    res.json({
+        status: "Sistem Aktif",
+        isRunning: isRunning,
+        isArchiving: isArchiving,
+        time: new Date()
+    });
+});
+
 app.listen(port, () => {
     console.log(`🚀 Sistem aktif: ${port}`);
     setTimeout(startMonitoring, 5000);
