@@ -1,281 +1,213 @@
-import express from 'express';
-import axios from 'axios';
-import * as cheerio from 'cheerio';
-import { createClient } from '@supabase/supabase-js';
-import cron from 'node-cron';
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import nodemailer from 'nodemailer';
-import crypto from 'crypto';
+<script>
+(function(){
 
-dotenv.config();
+    const SUPABASE_URL = "https://cyeklyjeszniowopawpc.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_RUhk34F8aZiNcgIDIZAwCA_8ZATrGh0";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const app = express();
-const port = process.env.PORT || 10000;
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const PANEL_URL = "https://panel25.oyunyoneticisi.com/rank/index.php?ip=95.173.173.81";
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// 🛡️ GÜVENLİK KATMANI: Gelişmiş Header Kontrolü
-app.use((req, res, next) => {
-    // 1. Ana sayfa (/) ve statik dosyaların (.js, .css, .jpg vb.) erişimine her zaman izin ver
-    if (req.path === '/' || req.path.includes('.')) {
-        return next();
-    }
+    let db = [];
+    const aylar = ["OCAK","ŞUBAT","MART","NİSAN","MAYIS","HAZİRAN","TEMMUZ","AĞUSTOS","EYLÜL","EKİM","KASIM","ARALIK"];
+    let selectionInProgress = false;
 
-    // 2. Bekçinin gönderdiği anahtarı al (Express otomatik olarak küçük harfe çevirir)
-    // Hem tireli hem alt tireli gönderimleri destekler.
-    const apiKey = req.headers['x-api-key'] || req.headers['x_api_key'];
+    let lastFetchTime = 0;
+    const FETCH_COOLDOWN = 1500;
 
-    // 3. Render üzerindeki gizli anahtarınla karşılaştır
-    // Not: Render panelinde hangi ismi verdiysen (tireli veya alt tireli) sistem onu eşleştirir.
-    const secretKey = process.env['x-api-key'] || process.env.X_API_KEY;
+    const yS = document.getElementById("yS"), mS = document.getElementById("mS"), wS = document.getElementById("wS");
 
-    if (!apiKey || apiKey !== secretKey) {
-        return res.status(403).send("Erişim Reddedildi: Sadece Yetkili Bekçiler Girebilir.");
-    }
-    next();
-});
-
-app.use(express.static(__dirname));
-app.use(express.static(path.join(__dirname, 'public')));
-
-const transporter = nodemailer.createTransport({
-    host: "smtp.office365.com",
-    port: 587,
-    secure: false,
-    auth: { user: "leventistemi@hotmail.com", pass: process.env.EMAIL_PASS }
-});
-
-let isRunning = false;
-let isArchiving = false;
-let suspiciousFlag = false;
-let lastGoodSnapshot = [];
-
-function parseNumber(str) {
-    if (!str) return 0;
-    const parsed = parseInt(String(str).trim(), 10);
-    return isNaN(parsed) ? 0 : parsed;
-}
-
-function parsePercent(str) {
-    if (!str) return 0;
-    const match = String(str).match(/\(([\d.]+)%\)/);
-    return match ? parseFloat(match[1]) : 0;
-}
-
-function getWeekRange() {
-    const d = new Date();
-    d.setHours(d.getHours() - 24); 
-    const day = d.getDay();
-    const diffToMonday = d.getDate() - day + (day === 0 ? -6 : 1);
-    
-    const monday = new Date(d.setDate(diffToMonday));
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    
-    return {
-        start: monday.toISOString().split('T')[0],
-        end: sunday.toISOString().split('T')[0]
+    const safe = (s) => {
+        const div = document.createElement("div");
+        div.textContent = s || "";
+        return div.innerHTML;
     };
-}
 
-function extractHeaders($, table) {
-    const headers = {};
-    table.find('tr').each((rowIndex, row) => {
-        if (headers.nick !== undefined) return; 
+    const formatDate = (dateStr) => {
+        if(!dateStr) return "";
+        const [y, m, d] = dateStr.split("-");
+        return `${d}.${m}.${y}`;
+    };
 
-        $(row).find('td, th').each((i, el) => {
-            let text = $(el).text().toLowerCase()
-                .replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ü/g, 'u')
-                .replace(/ş/g, 's').replace(/ç/g, 'c').replace(/ğ/g, 'g').trim();
-            
-            if (text.includes('nick')) headers.nick = i;
-            if (text.includes('oldurme') || text.includes('kill')) headers.kills = i;
-            if (text.includes('olumler') || text.includes('death')) headers.deaths = i;
-            if (text.includes('mermi') || text.includes('damage')) headers.damage = i;
-            if (text.includes('headshot') || text.includes('hs')) headers.hs = i;
-            if (text.includes('hedef') || text.includes('acc')) headers.acc = i;
-            if (text.includes('sira') || text.includes('rank')) headers.rank = i;
+    function canFetch(){
+        const now = Date.now();
+        if(now - lastFetchTime < FETCH_COOLDOWN){
+            console.warn("⛔ Çok hızlı istek!");
+            return false;
+        }
+        lastFetchTime = now;
+        return true;
+    }
+
+    function renderFilters() {
+        const currentYear = yS.value;
+        yS.innerHTML = `<option value="">Yıl</option>`;
+        [...new Set(db.map(x => x.y))].forEach(y => {
+            yS.innerHTML += `<option value="${y}">${y}</option>`;
         });
-    });
-    return headers;
-}
+        if(currentYear) yS.value = currentYear;
+    }
 
-function generateWeekId(players, totalKills) {
-    const raw = players.map(p => p.nick + p.total_kills).join('|') + totalKills;
-    return crypto.createHash('md5').update(raw).digest('hex');
-}
+    function selectLatest() {
+        if (db.length > 0 && !selectionInProgress) {
+            selectionInProgress = true;
+            const latest = db[0]; 
+            yS.value = latest.y;
+            yS.dispatchEvent(new Event('change')); 
+            setTimeout(() => {
+                mS.value = latest.m;
+                mS.dispatchEvent(new Event('change')); 
+                setTimeout(() => {
+                    wS.value = latest.s;
+                    wS.dispatchEvent(new Event('change'));
+                    selectionInProgress = false;
+                }, 250);
+            }, 250);
+        }
+    }
 
-async function startMonitoring() {
-    if (isRunning || isArchiving) return;
-    isRunning = true;
-
-    try {
-        console.log("🔍 Panel taranıyor...");
-        const response = await axios.get(PANEL_URL, {
-            timeout: 25000,
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
-        });
-
-        const $ = cheerio.load(response.data);
-        const table = $('table#table1').first();
-        if (table.length === 0) throw new Error("Tablo bulunamadı!");
-
-        const headers = extractHeaders($, table);
-        if (headers.nick === undefined || headers.kills === undefined || headers.damage === undefined) {
-            throw new Error("Kritik sütunlar (Nick, Kill veya Mermi) bulunamadı. Panel yapısı değişmiş!");
+    async function init(){
+        const cachedMenu = localStorage.getItem('archive_menu');
+        if(cachedMenu) {
+            db = JSON.parse(cachedMenu);
+            renderFilters();
+            selectLatest();
         }
 
-        const players = [];
-        let currentTotalKills = 0;
-        let currentTotalDamage = 0;
+        if(!canFetch()) return;
 
-        table.find('tr').each((i, el) => {
-            const cols = $(el).find('td');
-            if (cols.length < 5) return; 
+        const {data, error} = await client
+            .from("weekly_top15")
+            .select("week_start,week_end")
+            .order("week_end", {ascending: false});
 
-            const nick = $(cols[headers.nick]).text().trim();
-            if (!nick || nick.length < 2 || nick.toUpperCase() === 'NICK') return;
+        if(error) return;
 
-            const rankVal = parseNumber($(cols[headers.rank]).text());
-            const killsVal = parseNumber($(cols[headers.kills]).text());
-            const deathsVal = parseNumber($(cols[headers.deaths]).text());
-            const mermiVal = parseNumber($(cols[headers.damage]).text());
-            const hsVal = parsePercent($(cols[headers.hs]).text());
-            const accVal = parsePercent($(cols[headers.acc]).text());
+        const map = new Map();
 
-            players.push({
-                rank: rankVal || i,
-                nick: nick,
-                total_kills: killsVal,
-                total_deaths: deathsVal,
-                total_damage: mermiVal,
-                hs_percent: hsVal,
-                accuracy: accVal,
-                updated_at: new Date()
+        data.forEach(w => {
+            const key = w.week_start + "|" + w.week_end;
+            if(!map.has(key)){
+                const d = new Date(w.week_start);
+                map.set(key, {
+                    s: w.week_start,
+                    y: d.getFullYear(),
+                    m: d.getMonth(),
+                    label: `${formatDate(w.week_start)} - ${formatDate(w.week_end)}`
+                });
+            }
+        });
+
+        const newDb = Array.from(map.values());
+
+        if(JSON.stringify(newDb) !== cachedMenu) {
+            db = newDb;
+            localStorage.setItem('archive_menu', JSON.stringify(db));
+            renderFilters();
+            if(!selectionInProgress) selectLatest();
+        }
+    }
+
+    yS.onchange = () => {
+        mS.innerHTML = `<option value="">Ay</option>`;
+        wS.innerHTML = `<option value="">Hafta</option>`;
+        wS.disabled = true;
+        document.getElementById("dataArea").style.display = "none";
+
+        if(!yS.value){
+            mS.disabled = true;
+            return;
+        }
+
+        [...new Set(db.filter(d => d.y == yS.value).map(d => d.m))]
+            .sort((a,b)=>a-b)
+            .forEach(m => {
+                mS.innerHTML += `<option value="${m}">${aylar[m]}</option>`;
             });
-            
-            currentTotalKills += killsVal;
-            currentTotalDamage += mermiVal;
+
+        mS.disabled = false;
+    };
+
+    mS.onchange = () => {
+        wS.innerHTML = `<option value="">Hafta</option>`;
+        document.getElementById("dataArea").style.display = "none";
+
+        if(mS.value === ""){
+            wS.disabled = true;
+            return;
+        }
+
+        db.filter(d => d.y == yS.value && d.m == mS.value).forEach(w => {
+            wS.innerHTML += `<option value="${w.s}">${w.label}</option>`;
         });
 
-        if (players.length === 0) {
-            console.log("⚠️ Tablodan hiç oyuncu çıkarılamadı!");
-            return;
-        }
+        wS.disabled = false;
+    };
 
-        if (currentTotalDamage > 0 && currentTotalDamage < currentTotalKills) {
-            throw new Error("Veri Mantık Hatası: Toplam mermi sayısı öldürme sayısından az.");
-        }
+    wS.onchange = async () => {
+        if(!wS.value) return;
 
-        if (lastGoodSnapshot.length === 0) {
-            lastGoodSnapshot = players.map(p => ({ ...p }));
-        }
+        if(!canFetch()) return;
 
-        const { data: log } = await supabase.from('system_log').select('*').limit(1).maybeSingle();
-        if (!log) {
-            await supabase.from('system_log').upsert({ id: 1, total_kills_sum: currentTotalKills });
-            return;
-        }
+        const cacheKey = 'week_data_' + wS.value;
+        const cachedData = localStorage.getItem(cacheKey);
 
-        const isHardDrop = log.total_kills_sum > 2000 && currentTotalKills < (log.total_kills_sum * 0.30);
-        
-        if (isHardDrop) {
-            if (!suspiciousFlag) {
-                console.log("⚠️ Şüpheli düşüş, bekleniyor...");
-                suspiciousFlag = true;
+        if(cachedData) render(JSON.parse(cachedData));
+
+        const {data, error} = await client
+            .from("weekly_top15")
+            .select("*")
+            .eq("week_start", wS.value)
+            .order("rank");
+
+        if(!error) {
+            localStorage.setItem(cacheKey, JSON.stringify(data));
+            render(data);
+        }
+    };
+
+    function markRow(row) {
+        document.querySelectorAll('tr').forEach(r => r.classList.remove('selected-row'));
+        row.classList.add('selected-row');
+    }
+
+    function render(data){
+        const sorted = [...data].sort((a,b) => (Number(a.rank) || 99) - (Number(b.rank) || 99));
+        const list = [sorted[1], sorted[0], sorted[2]];
+
+        let phtml = "";
+
+        ["second", "first", "third"].forEach((cls, i) => {
+            const d = list[i];
+            if(!d){
+                phtml += `<div class="podium-card" style="visibility:hidden"></div>`;
                 return;
             }
-            console.log("🏛️ RESET TESPİT EDİLDİ - ARŞİVLENİYOR");
-            isArchiving = true;
-            
-            const weekRange = getWeekRange();
-            
-            if (lastGoodSnapshot.length >= 5) {
-                await archiveTheWeek(lastGoodSnapshot, log.total_kills_sum, currentTotalKills, weekRange);
-            }
-            lastGoodSnapshot = players.map(p => ({ ...p }));
-            suspiciousFlag = false;
-            isArchiving = false;
-            return;
-        }
 
-        suspiciousFlag = false;
-        lastGoodSnapshot = players.map(p => ({ ...p }));
-
-        const { error } = await supabase.from('players').upsert(players, { onConflict: 'nick' });
-        if (error) throw error;
-
-        await supabase.from('system_log').upsert({ 
-            id: 1, 
-            total_kills_sum: currentTotalKills, 
-            last_fetch: new Date() 
+            phtml += `
+                <div class="podium-card ${cls}">
+                    <div style="font-size:1.1rem">#${d.rank}</div>
+                    <div class="podium-nick">${safe(d.nick)}</div>
+                    <div style="font-size:0.9rem">${d.kills} Kills</div>
+                </div>`;
         });
 
-        console.log(`✅ ${players.length} oyuncu güncellendi`);
+        document.getElementById("podium").innerHTML = phtml;
 
-    } catch (err) {
-        console.error("❌ Hata:", err.message);
-    } finally {
-        isRunning = false;
+        document.getElementById("tbody").innerHTML = sorted.map(p => `
+            <tr class="${p.rank <= 3 ? 'highlight' : ''}" onclick="markRow(this)">
+                <td style="font-weight:bold; color:#d4af37">#${p.rank}</td>
+                <td style="text-align:left; padding-left:15px;">${safe(p.nick)}</td>
+                <td>${p.kills || 0}</td>
+                <td>${p.hs_percent || 0}%</td>
+                <td>${p.deaths || 0}</td>
+                <td>${p.mermiler || 0}</td>
+                <td>${p.accuracy || 0}%</td>
+            </tr>
+        `).join("");
+
+        document.getElementById("dataArea").style.display = "block";
     }
-}
 
-async function archiveTheWeek(snapshotData, oldTotalKills, currentKills, weekRange) {
-    try {
-        const weekId = generateWeekId(snapshotData, oldTotalKills);
-        const { data: exists } = await supabase.from('weekly_top15').select('week_id').eq('week_id', weekId).limit(1);
-        if (exists?.length > 0) return;
+    init();
 
-        const archiveRows = snapshotData.map((p, index) => ({
-            week_id: weekId,
-            week_start: weekRange.start, 
-            week_end: weekRange.end,      
-            rank: p.rank || index + 1, 
-            nick: p.nick, 
-            kills: p.total_kills, 
-            deaths: p.total_deaths,
-            mermiler: p.total_damage, 
-            hs_percent: p.hs_percent, 
-            accuracy: p.accuracy
-        }));
-
-        const { error } = await supabase.from('weekly_top15').insert(archiveRows);
-        if (!error) {
-            await supabase.from('players').delete().neq('nick', '---');
-            await supabase.from('system_log').upsert({ id: 1, total_kills_sum: currentKills });
-            transporter.sendMail({
-                from: '"Arşiv Botu" <leventistemi@hotmail.com>',
-                to: "leventistemi@hotmail.com",
-                subject: "🛡️ Hafta Mühürlendi!",
-                text: `Haftalık arşiv başarıyla kaydedildi.\nWeek ID: ${weekId}\nTarih: ${weekRange.start} - ${weekRange.end}`
-            }).catch(() => {});
-        }
-    } catch (err) { console.error("❌ Arşiv Hatası:", err.message); }
-}
-
-cron.schedule('*/3 * * * *', () => {
-    if (!isRunning && !isArchiving) startMonitoring();
-});
-
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// 🚪 BEKÇİ KAPISI: Cron-job'un "404" almaması için eklenen status rotası
-app.get('/status', (req, res) => {
-    res.json({
-        status: "Sistem Aktif",
-        isRunning: isRunning,
-        isArchiving: isArchiving,
-        time: new Date()
-    });
-});
-
-app.listen(port, () => {
-    console.log(`🚀 Sistem aktif: ${port}`);
-    setTimeout(startMonitoring, 5000);
-});
+})();
+</script>
