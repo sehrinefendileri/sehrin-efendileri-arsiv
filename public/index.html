@@ -64,7 +64,15 @@
             <div class="table-wrap">
                 <table>
                     <thead>
-                        <tr><th>Sıra</th><th>Nick</th><th>Öldürme</th><th>HeadShot</th><th>Ölümler</th><th>Mermiler</th><th>Hedef</th></tr>
+                        <tr>
+                            <th>SIRA</th>
+                            <th>NİCK</th>
+                            <th>ÖLDÜRME</th>
+                            <th>HEADSHOT</th>
+                            <th>ÖLÜMLER</th>
+                            <th>MERMİLER</th>
+                            <th>HEDEF TUTTURMA</th>
+                        </tr>
                     </thead>
                     <tbody id="tbody"></tbody>
                 </table>
@@ -206,7 +214,6 @@
             try { render(JSON.parse(cachedData)); } catch(e) {}
         }
 
-        // DÜZELTME: "rank" yerine veritabanındaki yeni ismimiz "sira"
         const {data, error} = await client.from("weekly_top15").select("*").eq("week_start", wS.value).order("sira");
         
         if(error) {
@@ -228,7 +235,6 @@
     }
 
     function render(data){
-        // DÜZELTME: Veritabanındaki yeni sütun isimlerimizle eşleme
         const sorted = [...data].sort((a,b) => (Number(a.sira) || 99) - (Number(b.sira) || 99));
         if(sorted.length === 0) return;
 
@@ -238,8 +244,7 @@
         ["second", "first", "third"].forEach((cls, i) => {
             const d = list[i];
             if(!d){ phtml += `<div class="podium-card" style="visibility:hidden"></div>`; return; }
-            // DÜZELTME: d.rank -> d.sira ve d.kills -> d.oldurme
-            phtml += `<div class="podium-card ${cls}"><div style="font-size:1.1rem">#${d.sira}</div><div class="podium-nick">${safe(d.nick)}</div><div style="font-size:0.9rem">${d.oldurme} Kills</div></div>`;
+            phtml += `<div class="podium-card ${cls}"><div style="font-size:1.1rem">#${d.sira}</div><div class="podium-nick">${safe(d.nick)}</div><div style="font-size:0.9rem">${d.oldurme} Öldürme</div></div>`;
         });
 
         document.getElementById("podium").innerHTML = phtml;
