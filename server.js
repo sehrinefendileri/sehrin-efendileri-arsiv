@@ -1,213 +1,233 @@
-<script>
-(function(){
+import express from 'express';
+import axios from 'axios';
+import * as cheerio from 'cheerio';
+import { createClient } from '@supabase/supabase-js';
+import cron from 'node-cron';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import nodemailer from 'nodemailer';
+import crypto from 'crypto';
+import rateLimit from 'express-rate-limit';
 
-    const SUPABASE_URL = "https://cyeklyjeszniowopawpc.supabase.co";
-    const SUPABASE_KEY = "sb_publishable_RUhk34F8aZiNcgIDIZAwCA_8ZATrGh0";
+dotenv.config();
 
-    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// 🛡️ 1. GÜVENLİK: ENV Kontrolü (ChatGPT'nin son uyarısı)
+const requiredEnv = ['SUPABASE_URL', 'SUPABASE_KEY', 'X_API_KEY', 'EMAIL_PASS'];
+requiredEnv.forEach(key => {
+    if (!process.env[key]) {
+        console.error(`❌ KRİTİK HATA: Environment Variable [${key}] eksik!`);
+        process.exit(1); // Sistem eksik anahtarla çalışmasın, kapansın.
+    }
+});
 
-    let db = [];
-    const aylar = ["OCAK","ŞUBAT","MART","NİSAN","MAYIS","HAZİRAN","TEMMUZ","AĞUSTOS","EYLÜL","EKİM","KASIM","ARALIK"];
-    let selectionInProgress = false;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const app = express();
+const port = process.env.PORT || 10000;
 
-    let lastFetchTime = 0;
-    const FETCH_COOLDOWN = 1500;
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const PANEL_URL = "https://panel25.oyunyoneticisi.com/rank/index.php?ip=95.173.173.81";
 
-    const yS = document.getElementById("yS"), mS = document.getElementById("mS"), wS = document.getElementById("wS");
+// 🛡️ 2. GÜVENLİK: Rate Limit
+const limiter = rateLimit({
+    windowMs: 1 * 60 * 1000,
+    max: 30,
+    message: { error: "Çok fazla istek gönderildi!" }
+});
 
-    const safe = (s) => {
-        const div = document.createElement("div");
-        div.textContent = s || "";
-        return div.innerHTML;
+// 🛡️ 3. GÜVENLİK: Nihai Middleware (Bekçi)
+app.use((req, res, next) => {
+    // /status ile başlamayan tüm GET isteklerini statik dosya olarak değerlendir
+    const isApiRequest = req.path.startsWith('/status');
+    
+    if (req.method === 'GET' && !isApiRequest) {
+        return next();
+    }
+    
+    // API veya durum kontrolü için X_API_KEY doğrula
+    const apiKey = req.headers['x-api-key'];
+    if (apiKey === process.env.X_API_KEY) {
+        return next();
+    }
+
+    return res.status(403).json({ error: "Erişim Reddedildi: Geçersiz veya eksik anahtar." });
+});
+
+// Rate limit sadece /status için aktif
+app.use('/status', limiter);
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+const transporter = nodemailer.createTransport({
+    host: "smtp.office365.com",
+    port: 587,
+    secure: false,
+    auth: { user: "leventistemi@hotmail.com", pass: process.env.EMAIL_PASS }
+});
+
+let isRunning = false;
+let isArchiving = false;
+let suspiciousFlag = false;
+let lastGoodSnapshot = [];
+
+// ======================
+// YARDIMCI ARAÇLAR
+// ======================
+
+function normalizeText(text) {
+    return text.toLowerCase().trim()
+        .replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ü/g, 'u')
+        .replace(/ş/g, 's').replace(/ç/g, 'c').replace(/ğ/g, 'g');
+}
+
+function parseNumber(str) {
+    if (!str) return 0;
+    const parsed = parseInt(String(str).trim().replace(/\./g, ''), 10);
+    return isNaN(parsed) ? 0 : parsed;
+}
+
+function parsePercent(str) {
+    if (!str) return 0;
+    const match = String(str).match(/\(([\d.]+)%\)/);
+    return match ? parseFloat(match[1]) : 0;
+}
+
+function getWeekRange() {
+    const d = new Date();
+    d.setHours(d.getHours() - 24);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(d.setDate(diff));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    return {
+        start: monday.toISOString().split('T')[0],
+        end: sunday.toISOString().split('T')[0]
     };
+}
 
-    const formatDate = (dateStr) => {
-        if(!dateStr) return "";
-        const [y, m, d] = dateStr.split("-");
-        return `${d}.${m}.${y}`;
-    };
-
-    function canFetch(){
-        const now = Date.now();
-        if(now - lastFetchTime < FETCH_COOLDOWN){
-            console.warn("⛔ Çok hızlı istek!");
-            return false;
-        }
-        lastFetchTime = now;
-        return true;
-    }
-
-    function renderFilters() {
-        const currentYear = yS.value;
-        yS.innerHTML = `<option value="">Yıl</option>`;
-        [...new Set(db.map(x => x.y))].forEach(y => {
-            yS.innerHTML += `<option value="${y}">${y}</option>`;
+function extractHeaders($, table) {
+    const headers = {};
+    table.find('tr').each((_, row) => {
+        if (headers.nick !== undefined) return;
+        $(row).find('td, th').each((i, el) => {
+            const text = normalizeText($(el).text());
+            if (text.includes('nick')) headers.nick = i;
+            if (text.includes('oldurme') || text.includes('kill')) headers.kills = i;
+            if (text.includes('olum') || text.includes('death')) headers.deaths = i;
+            if (text.includes('mermi') || text.includes('damage')) headers.damage = i;
+            if (text.includes('headshot') || text.includes('hs')) headers.hs = i;
+            if (text.includes('hedef') || text.includes('acc')) headers.acc = i;
+            if (text.includes('sira') || text.includes('rank')) headers.rank = i;
         });
-        if(currentYear) yS.value = currentYear;
-    }
+    });
+    return headers;
+}
 
-    function selectLatest() {
-        if (db.length > 0 && !selectionInProgress) {
-            selectionInProgress = true;
-            const latest = db[0]; 
-            yS.value = latest.y;
-            yS.dispatchEvent(new Event('change')); 
-            setTimeout(() => {
-                mS.value = latest.m;
-                mS.dispatchEvent(new Event('change')); 
-                setTimeout(() => {
-                    wS.value = latest.s;
-                    wS.dispatchEvent(new Event('change'));
-                    selectionInProgress = false;
-                }, 250);
-            }, 250);
-        }
-    }
+// ======================
+// ANA İŞLEM MERKEZİ
+// ======================
 
-    async function init(){
-        const cachedMenu = localStorage.getItem('archive_menu');
-        if(cachedMenu) {
-            db = JSON.parse(cachedMenu);
-            renderFilters();
-            selectLatest();
-        }
+async function startMonitoring() {
+    if (isRunning || isArchiving) return;
+    isRunning = true;
+    try {
+        const response = await axios.get(PANEL_URL, { timeout: 20000, headers: { 'User-Agent': 'Mozilla/5.0' } });
+        const $ = cheerio.load(response.data);
+        const table = $('table#table1').first();
+        if (!table.length) throw new Error("Panel Tablosu bulunamadı");
 
-        if(!canFetch()) return;
+        const headers = extractHeaders($, table);
+        const players = [];
+        let totalKills = 0;
 
-        const {data, error} = await client
-            .from("weekly_top15")
-            .select("week_start,week_end")
-            .order("week_end", {ascending: false});
+        table.find('tr').each((i, el) => {
+            const cols = $(el).find('td');
+            if (cols.length < 5) return;
+            const nick = $(cols[headers.nick]).text().trim();
+            if (!nick || nick.toUpperCase() === 'NICK' || nick === '---') return;
 
-        if(error) return;
-
-        const map = new Map();
-
-        data.forEach(w => {
-            const key = w.week_start + "|" + w.week_end;
-            if(!map.has(key)){
-                const d = new Date(w.week_start);
-                map.set(key, {
-                    s: w.week_start,
-                    y: d.getFullYear(),
-                    m: d.getMonth(),
-                    label: `${formatDate(w.week_start)} - ${formatDate(w.week_end)}`
-                });
-            }
-        });
-
-        const newDb = Array.from(map.values());
-
-        if(JSON.stringify(newDb) !== cachedMenu) {
-            db = newDb;
-            localStorage.setItem('archive_menu', JSON.stringify(db));
-            renderFilters();
-            if(!selectionInProgress) selectLatest();
-        }
-    }
-
-    yS.onchange = () => {
-        mS.innerHTML = `<option value="">Ay</option>`;
-        wS.innerHTML = `<option value="">Hafta</option>`;
-        wS.disabled = true;
-        document.getElementById("dataArea").style.display = "none";
-
-        if(!yS.value){
-            mS.disabled = true;
-            return;
-        }
-
-        [...new Set(db.filter(d => d.y == yS.value).map(d => d.m))]
-            .sort((a,b)=>a-b)
-            .forEach(m => {
-                mS.innerHTML += `<option value="${m}">${aylar[m]}</option>`;
+            const kills = parseNumber($(cols[headers.kills]).text());
+            players.push({
+                rank: parseNumber($(cols[headers.rank]).text()) || i,
+                nick,
+                total_kills: kills,
+                total_deaths: parseNumber($(cols[headers.deaths]).text()),
+                total_damage: parseNumber($(cols[headers.damage]).text()),
+                hs_percent: parsePercent($(cols[headers.hs]).text()),
+                accuracy: parsePercent($(cols[headers.acc]).text()),
+                updated_at: new Date()
             });
+            totalKills += kills;
+        });
 
-        mS.disabled = false;
-    };
+        const { data: log, error: logErr } = await supabase.from('system_log').select('*').eq('id', 1).maybeSingle();
+        if (logErr) throw logErr;
 
-    mS.onchange = () => {
-        wS.innerHTML = `<option value="">Hafta</option>`;
-        document.getElementById("dataArea").style.display = "none";
+        if (lastGoodSnapshot.length === 0) {
+            const { data: dbPlayers } = await supabase.from('players').select('*');
+            if (dbPlayers) lastGoodSnapshot = dbPlayers;
+        }
 
-        if(mS.value === ""){
-            wS.disabled = true;
+        if (!log) {
+            await supabase.from('system_log').upsert({ id: 1, total_kills_sum: totalKills });
             return;
         }
 
-        db.filter(d => d.y == yS.value && d.m == mS.value).forEach(w => {
-            wS.innerHTML += `<option value="${w.s}">${w.label}</option>`;
-        });
-
-        wS.disabled = false;
-    };
-
-    wS.onchange = async () => {
-        if(!wS.value) return;
-
-        if(!canFetch()) return;
-
-        const cacheKey = 'week_data_' + wS.value;
-        const cachedData = localStorage.getItem(cacheKey);
-
-        if(cachedData) render(JSON.parse(cachedData));
-
-        const {data, error} = await client
-            .from("weekly_top15")
-            .select("*")
-            .eq("week_start", wS.value)
-            .order("rank");
-
-        if(!error) {
-            localStorage.setItem(cacheKey, JSON.stringify(data));
-            render(data);
+        const isReset = log.total_kills_sum > 2000 && totalKills < (log.total_kills_sum * 0.30);
+        
+        if (isReset) {
+            if (!suspiciousFlag) { suspiciousFlag = true; return; }
+            isArchiving = true;
+            if (lastGoodSnapshot.length >= 5) await archiveTheWeek(lastGoodSnapshot, log.total_kills_sum, totalKills);
+            suspiciousFlag = false;
+            isArchiving = false;
+        } else {
+            suspiciousFlag = false;
+            lastGoodSnapshot = players.map(p => ({ ...p }));
+            await supabase.from('players').upsert(players, { onConflict: 'nick' });
+            await supabase.from('system_log').upsert({ id: 1, total_kills_sum: totalKills, last_fetch: new Date() });
+            console.log(`✅ Güncellendi. Oyuncu: ${players.length}, Toplam Kill: ${totalKills}`);
         }
-    };
+    } catch (err) { console.error("❌ Hata:", err.message); } finally { isRunning = false; }
+}
 
-    function markRow(row) {
-        document.querySelectorAll('tr').forEach(r => r.classList.remove('selected-row'));
-        row.classList.add('selected-row');
-    }
+async function archiveTheWeek(snapshot, oldKills, newKills) {
+    try {
+        const weekRange = getWeekRange();
+        const cleanSnapshot = snapshot.filter(p => p.nick !== '---').slice(0, 15);
+        const weekId = crypto.createHash('md5').update(cleanSnapshot.map(p => p.nick + p.total_kills).join('|') + oldKills).digest('hex');
+        
+        const { data: exists } = await supabase.from('weekly_top15').select('week_id').eq('week_id', weekId).maybeSingle();
+        if (exists) return;
 
-    function render(data){
-        const sorted = [...data].sort((a,b) => (Number(a.rank) || 99) - (Number(b.rank) || 99));
-        const list = [sorted[1], sorted[0], sorted[2]];
+        const rows = cleanSnapshot.map((p, i) => ({
+            week_id: weekId, week_start: weekRange.start, week_end: weekRange.end,
+            rank: i + 1, nick: p.nick, kills: p.total_kills, deaths: p.total_deaths,
+            mermiler: p.total_damage, hs_percent: p.hs_percent, accuracy: p.accuracy
+        }));
 
-        let phtml = "";
+        const { error: arcErr } = await supabase.from('weekly_top15').insert(rows);
+        if (arcErr) throw arcErr;
 
-        ["second", "first", "third"].forEach((cls, i) => {
-            const d = list[i];
-            if(!d){
-                phtml += `<div class="podium-card" style="visibility:hidden"></div>`;
-                return;
-            }
+        await supabase.from('players').delete().neq('nick', '---');
+        await supabase.from('system_log').upsert({ id: 1, total_kills_sum: newKills });
 
-            phtml += `
-                <div class="podium-card ${cls}">
-                    <div style="font-size:1.1rem">#${d.rank}</div>
-                    <div class="podium-nick">${safe(d.nick)}</div>
-                    <div style="font-size:0.9rem">${d.kills} Kills</div>
-                </div>`;
-        });
+        transporter.sendMail({
+            from: '"Arşiv" <leventistemi@hotmail.com>',
+            to: "leventistemi@hotmail.com",
+            subject: `🛡️ Hafta Mühürlendi: ${weekRange.start}`,
+            text: `${weekRange.start} - ${weekRange.end} başarıyla arşivlendi.`
+        }).catch(() => {});
+        console.log("🏆 ARŞİV BAŞARILI");
+    } catch (err) { console.error("❌ Arşiv Hatası:", err.message); }
+}
 
-        document.getElementById("podium").innerHTML = phtml;
+// YOLLAR
+app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
+app.get('/status', (req, res) => { res.json({ ok: true, running: isRunning, archiving: isArchiving, time: new Date() }); });
 
-        document.getElementById("tbody").innerHTML = sorted.map(p => `
-            <tr class="${p.rank <= 3 ? 'highlight' : ''}" onclick="markRow(this)">
-                <td style="font-weight:bold; color:#d4af37">#${p.rank}</td>
-                <td style="text-align:left; padding-left:15px;">${safe(p.nick)}</td>
-                <td>${p.kills || 0}</td>
-                <td>${p.hs_percent || 0}%</td>
-                <td>${p.deaths || 0}</td>
-                <td>${p.mermiler || 0}</td>
-                <td>${p.accuracy || 0}%</td>
-            </tr>
-        `).join("");
-
-        document.getElementById("dataArea").style.display = "block";
-    }
-
-    init();
-
-})();
-</script>
+// BAŞLATMA
+cron.schedule('*/3 * * * *', () => { if (!isRunning && !isArchiving) startMonitoring(); });
+app.listen(port, () => { console.log("🚀 SERVER LIVE"); setTimeout(startMonitoring, 5000); });
