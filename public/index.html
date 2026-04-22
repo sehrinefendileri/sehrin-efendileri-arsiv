@@ -5,83 +5,73 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Şehrin Efendileri | Haftalık Arşiv</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #000 url('bg.jpg') no-repeat center center fixed; background-size: cover; color: #f0f0f0; overflow-x: hidden; }
-        .overlay { background: rgba(0, 0, 0, 0.65); min-height: 100vh; padding: 20px 0; }
+        .overlay { background: rgba(0, 0, 0, 0.60); min-height: 100vh; padding: 20px 0; }
         .container { width: 95%; max-width: 1200px; margin: auto; text-align: center; }
-        .glass-panel { background: rgba(15, 15, 15, 0.85); border: 1px solid rgba(212, 175, 55, 0.4); border-radius: 12px; padding: 25px; margin-bottom: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.8); }
+        .glass-panel { background: rgba(20, 20, 20, 0.8); border: 1px solid rgba(212, 175, 55, 0.4); border-radius: 12px; padding: 25px; margin-bottom: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
         h1 { color: #d4af37; text-transform: uppercase; letter-spacing: 5px; font-size: 2.8rem; margin: 10px 0; }
         .archive-desc { color: #ccc; font-size: 1.1rem; margin-bottom: 20px; line-height: 1.6; }
-        
-        .filters { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; align-items: center; }
+        .filters { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
         select { padding: 10px 20px; background: black; color: #d4af37; border: 2px solid #d4af37; border-radius: 5px; cursor: pointer; font-weight: bold; }
         select:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        /* 10. Madde: Paylaşım Butonu Stili */
-        .share-btn { background: #d4af37; color: black; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        .share-btn:hover { background: #fff; transform: scale(1.05); }
-
         .podium { display: flex; justify-content: center; align-items: flex-end; gap: 10px; margin: 30px 0; }
         .podium-card { width: 150px; padding: 15px; border-radius: 10px; color: black; font-weight: bold; box-shadow: 0 5px 15px rgba(0,0,0,0.5); display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
         .podium-nick { font-size: 0.85rem; word-break: break-all; margin: 10px 0; line-height: 1.2; max-height: 3em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .first { background: gold; height: 160px; order: 2; border: 2px solid #fff; }
         .second { background: silver; height: 130px; order: 1; }
         .third { background: #cd7f32; height: 110px; order: 3; }
-
-        /* 5. Madde: Okunabilirlik Geliştirmeleri */
-        .table-wrap { overflow-x: auto; border-radius: 12px; background: rgba(5, 5, 5, 0.95); border: 1px solid rgba(212, 175, 55, 0.3); }
+        .table-wrap { overflow-x: auto; border-radius: 12px; background: rgba(0,0,0,0.8); border: 1px solid rgba(212, 175, 55, 0.3); }
         table { width: 100%; border-collapse: collapse; min-width: 800px; }
-        
-        /* 2. Madde: Sıralanabilir Başlıklar */
-        th { background: gold; color: black; padding: 12px 10px; text-transform: uppercase; font-size: 0.75rem; position: sticky; top: 0; z-index: 30; cursor: pointer; }
-        th:hover { background: #fff; }
-
-        /* Zebra Striping (Okunabilirlik) */
-        tbody tr:nth-child(even) { background: rgba(212, 175, 55, 0.05); }
+        th { background: gold; color: black; padding: 12px 10px; text-transform: uppercase; font-size: 0.75rem; position: sticky; top: 0; z-index: 30; }
         td { padding: 10px; border-bottom: 1px solid #222; font-size: 0.9rem; }
-        
         th:nth-child(2), td:nth-child(2) { position: sticky; left: 0; background: #111 !important; z-index: 25; min-width: 140px; box-shadow: 2px 0 0 0 #d4af37; }
         th:nth-child(2) { z-index: 31; background: gold !important; box-shadow: 2px 0 0 0 gold; }
-        
         tbody tr:hover td { background: rgba(212, 175, 55, 0.2) !important; }
-        .selected-row td { background: rgba(212, 175, 55, 0.4) !important; color: #fff !important; }
-
+        .selected-row td { background: rgba(212, 175, 55, 0.4) !important; color: #fff !important; border-top: 1px solid gold; border-bottom: 1px solid gold; }
+        .selected-row td:nth-child(2) { background: #222 !important; }
+        .highlight { background: rgba(212, 175, 55, 0.08); }
+        .error-msg { color: #ff4d4d; background: rgba(255,0,0,0.1); padding: 12px; border: 1px solid #ff4d4d; border-radius: 5px; margin: 15px 0; display: none; font-weight: bold; }
         @media (max-width: 768px) {
             h1 { font-size: 1.6rem; letter-spacing: 2px; }
-            .podium-card { width: 32%; padding: 10px 5px; }
+            .archive-desc { font-size: 0.85rem; padding: 0 10px; }
+            .podium { gap: 5px; margin: 20px 0; }
+            .podium-card { width: 32%; padding: 10px 5px; min-height: 100px; }
+            .podium-nick { font-size: 0.7rem; }
+            .first { height: 140px; }
+            .second { height: 120px; }
+            .third { height: 100px; }
+            td, th { padding: 8px 5px; font-size: 0.75rem; }
             th:nth-child(2), td:nth-child(2) { min-width: 100px; }
-            .share-btn { width: 100%; margin-top: 10px; }
         }
     </style>
 </head>
 <body>
-<div class="overlay" id="captureArea">
+<div class="overlay">
     <div class="container">
         <div class="glass-panel">
             <h1>ŞEHRİN EFENDİLERİ ARŞİV</h1>
-            <p class="archive-desc">Haftalık mühürlenmiş Top 15 kayıtları.<br>Verileri sütun başlıklarına tıklayarak sıralayabilirsiniz.</p>
+            <p class="archive-desc">Bu sayfada geçmiş haftalara ait Top 15 listeleri yer alır.<br>Aşağıdan tarih aralığı seçerek verilere ulaşabilirsiniz.</p>
             <div id="errorBox" class="error-msg"></div>
             <div class="filters">
                 <select id="yS"><option value="">Yıl</option></select>
                 <select id="mS" disabled><option value="">Ay</option></select>
                 <select id="wS" disabled><option value="">Hafta</option></select>
-                <button class="share-btn" onclick="takeScreenshot()">🖼️ SKORU PAYLAŞ</button>
             </div>
         </div>
         <div id="dataArea" style="display:none;">
             <div id="podium" class="podium"></div>
             <div class="table-wrap">
-                <table id="rankTable">
+                <table>
                     <thead>
                         <tr>
-                            <th onclick="sortTable(0)">SIRA</th>
-                            <th onclick="sortTable(1)">NİCK</th>
-                            <th onclick="sortTable(2)">ÖLDÜRME</th>
-                            <th onclick="sortTable(3)">HEADSHOT</th>
-                            <th onclick="sortTable(4)">ÖLÜMLER</th>
-                            <th onclick="sortTable(5)">MERMİLER</th>
-                            <th onclick="sortTable(6)">HEDEF TUTTURMA</th>
+                            <th>SIRA</th>
+                            <th>NİCK</th>
+                            <th>ÖLDÜRME</th>
+                            <th>HEADSHOT</th>
+                            <th>ÖLÜMLER</th>
+                            <th>MERMİLER</th>
+                            <th>HEDEF TUTTURMA</th>
                         </tr>
                     </thead>
                     <tbody id="tbody"></tbody>
@@ -99,64 +89,17 @@
 
     let db = [];
     const aylar = ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN", "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"];
+    let selectionInProgress = false;
     let lastRequestTime = 0;
 
     const yS = document.getElementById("yS"), mS = document.getElementById("mS"), wS = document.getElementById("wS");
+    const errorBox = document.getElementById("errorBox");
 
-    // 2. Madde: JavaScript ile Tablo Sıralama
-    window.sortTable = function(n) {
-        const table = document.getElementById("rankTable");
-        let switching = true, i, x, y, shouldSwitch, dir = "desc", switchcount = 0;
-        while (switching) {
-            switching = false;
-            let rows = table.rows;
-            for (i = 1; i < (rows.length - 1); i++) {
-                shouldSwitch = false;
-                x = rows[i].getElementsByTagName("TD")[n];
-                y = rows[i + 1].getElementsByTagName("TD")[n];
-                
-                let xVal = x.innerText.toLowerCase().replace('%', '').replace('#', '');
-                let yVal = y.innerText.toLowerCase().replace('%', '').replace('#', '');
-                
-                if (!isNaN(parseFloat(xVal))) {
-                    xVal = parseFloat(xVal);
-                    yVal = parseFloat(yVal);
-                }
-
-                if (dir == "asc") {
-                    if (xVal > yVal) { shouldSwitch = true; break; }
-                } else if (dir == "desc") {
-                    if (xVal < yVal) { shouldSwitch = true; break; }
-                }
-            }
-            if (shouldSwitch) {
-                rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
-                switching = true;
-                switchcount ++;
-            } else {
-                if (switchcount == 0 && dir == "desc") {
-                    dir = "asc";
-                    switching = true;
-                }
-            }
-        }
-    }
-
-    // 10. Madde: Ekran Görüntüsü Alma Fonksiyonu
-    window.takeScreenshot = function() {
-        const btn = document.querySelector('.share-btn');
-        btn.style.display = 'none'; // Görüntüde buton çıkmasın
-        html2canvas(document.querySelector("#captureArea"), {
-            backgroundColor: "#000",
-            scale: 2
-        }).then(canvas => {
-            const link = document.createElement('a');
-            link.download = 'sehrin-efendileri-arsiv.png';
-            link.href = canvas.toDataURL();
-            link.click();
-            btn.style.display = 'inline-block';
-        });
-    }
+    const showError = (msg) => {
+        errorBox.textContent = msg;
+        errorBox.style.display = "block";
+        setTimeout(() => { errorBox.style.display = "none"; }, 6000);
+    };
 
     const safe = (s) => {
         const div = document.createElement("div");
@@ -170,9 +113,50 @@
         return `${d}.${m}.${y}`;
     };
 
+    function renderFilters() {
+        const currentYear = yS.value;
+        yS.innerHTML = `<option value="">Yıl</option>`;
+        const years = [...new Set(db.map(x => x.y))].sort((a,b) => b-a);
+        years.forEach(y => { yS.innerHTML += `<option value="${y}">${y}</option>`; });
+        if(currentYear) yS.value = currentYear;
+    }
+
+    function selectLatest() {
+        if (db.length > 0 && !selectionInProgress) {
+            selectionInProgress = true;
+            const latest = db[0]; 
+            yS.value = latest.y;
+            yS.dispatchEvent(new Event('change')); 
+            
+            setTimeout(() => {
+                mS.value = latest.m;
+                mS.dispatchEvent(new Event('change')); 
+                setTimeout(() => {
+                    wS.value = latest.s;
+                    wS.dispatchEvent(new Event('change'));
+                    selectionInProgress = false;
+                }, 200);
+            }, 200);
+        }
+    }
+
     async function init(){
+        const cachedMenu = localStorage.getItem('archive_menu');
+        if(cachedMenu) {
+            try {
+                db = JSON.parse(cachedMenu);
+                renderFilters();
+                selectLatest();
+            } catch(e) { localStorage.removeItem('archive_menu'); }
+        }
+        
         const {data, error} = await client.from("weekly_top15").select("week_start,week_end").order("week_end", {ascending: false});
-        if(error) return;
+        
+        if(error) {
+            console.error("Supabase Error:", error);
+            if(!db.length) showError("Sunucuya ulaşılamıyor. Lütfen sayfayı yenileyin.");
+            return;
+        }
 
         const map = new Map();
         data.forEach(w => {
@@ -183,38 +167,89 @@
             }
         });
 
-        db = Array.from(map.values());
-        yS.innerHTML = `<option value="">Yıl</option>` + [...new Set(db.map(x => x.y))].map(y => `<option value="${y}">${y}</option>`).join("");
+        const newDb = Array.from(map.values());
+        const rawCache = localStorage.getItem('archive_menu') || "[]";
+        
+        if(JSON.stringify(newDb) !== JSON.stringify(JSON.parse(rawCache))) {
+            db = newDb;
+            localStorage.setItem('archive_menu', JSON.stringify(db));
+            renderFilters();
+            if(!selectionInProgress) selectLatest();
+        }
     }
 
     yS.onchange = () => {
-        mS.innerHTML = `<option value="">Ay</option>` + [...new Set(db.filter(d => d.y == yS.value).map(d => d.m))].map(m => `<option value="${m}">${aylar[m]}</option>`).join("");
-        mS.disabled = false;
+        mS.innerHTML = `<option value="">Ay</option>`;
+        wS.innerHTML = `<option value="">Hafta</option>`;
         wS.disabled = true;
+        document.getElementById("dataArea").style.display = "none";
+        if(!yS.value){ mS.disabled = true; return; }
+        
+        [...new Set(db.filter(d => d.y == yS.value).map(d => d.m))].sort((a,b)=>b-a).forEach(m => {
+            mS.innerHTML += `<option value="${m}">${aylar[m]}</option>`;
+        });
+        mS.disabled = false;
     };
 
     mS.onchange = () => {
-        wS.innerHTML = `<option value="">Hafta</option>` + db.filter(d => d.y == yS.value && d.m == mS.value).map(w => `<option value="${w.s}">${w.label}</option>`).join("");
+        wS.innerHTML = `<option value="">Hafta</option>`;
+        document.getElementById("dataArea").style.display = "none";
+        if(mS.value === ""){ wS.disabled = true; return; }
+        
+        db.filter(d => d.y == yS.value && d.m == mS.value).forEach(w => {
+            wS.innerHTML += `<option value="${w.s}">${w.label}</option>`;
+        });
         wS.disabled = false;
     };
 
     wS.onchange = async () => {
-        const {data} = await client.from("weekly_top15").select("*").eq("week_start", wS.value).order("sira");
-        if(data) render(data);
+        if(!wS.value) return;
+        const now = Date.now();
+        if(now - lastRequestTime < 1000) return;
+        lastRequestTime = now;
+
+        const cacheKey = 'week_data_' + wS.value;
+        const cachedData = localStorage.getItem(cacheKey);
+        if(cachedData) {
+            try { render(JSON.parse(cachedData)); } catch(e) {}
+        }
+
+        const {data, error} = await client.from("weekly_top15").select("*").eq("week_start", wS.value).order("sira");
+        
+        if(error) {
+            showError("Veriler alınamadı, sunucu yoğun olabilir.");
+            return;
+        }
+
+        if(data && data.length > 0) {
+            localStorage.setItem(cacheKey, JSON.stringify(data));
+            render(data);
+        } else {
+            showError("Bu tarihe ait arşiv kaydı bulunamadı.");
+        }
     };
+
+    window.markRow = function(row) {
+        document.querySelectorAll('tr').forEach(r => r.classList.remove('selected-row'));
+        row.classList.add('selected-row');
+    }
 
     function render(data){
         const sorted = [...data].sort((a,b) => (Number(a.sira) || 99) - (Number(b.sira) || 99));
-        const list = [sorted[1], sorted[0], sorted[2]];
-        
-        document.getElementById("podium").innerHTML = ["second", "first", "third"].map((cls, i) => {
-            const d = list[i];
-            if(!d) return `<div class="podium-card" style="visibility:hidden"></div>`;
-            return `<div class="podium-card ${cls}"><div>#${d.sira}</div><div class="podium-nick">${safe(d.nick)}</div><div>${d.oldurme} Öldürme</div></div>`;
-        }).join("");
+        if(sorted.length === 0) return;
 
+        const list = [sorted[1], sorted[0], sorted[2]];
+        let phtml = "";
+        
+        ["second", "first", "third"].forEach((cls, i) => {
+            const d = list[i];
+            if(!d){ phtml += `<div class="podium-card" style="visibility:hidden"></div>`; return; }
+            phtml += `<div class="podium-card ${cls}"><div style="font-size:1.1rem">#${d.sira}</div><div class="podium-nick">${safe(d.nick)}</div><div style="font-size:0.9rem">${d.oldurme} Öldürme</div></div>`;
+        });
+
+        document.getElementById("podium").innerHTML = phtml;
         document.getElementById("tbody").innerHTML = sorted.map(p => `
-            <tr>
+            <tr class="${p.sira <= 3 ? 'highlight' : ''}" onclick="markRow(this)">
                 <td style="font-weight:bold; color:#d4af37">#${p.sira}</td>
                 <td style="text-align:left; padding-left:15px;">${safe(p.nick)}</td>
                 <td>${p.oldurme || 0}</td>
