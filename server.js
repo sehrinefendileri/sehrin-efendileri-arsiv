@@ -72,7 +72,7 @@ let suspiciousFlag = false;
 let lastGoodSnapshot = [];
 
 // ======================
-// YARDIMCI ARAÇLAR
+// YARDIMCI ARAÇLAR (Paneldeki Karışık Verileri Çözen Kısım)
 // ======================
 
 function normalizeText(text) {
@@ -83,14 +83,21 @@ function normalizeText(text) {
 
 function parseNumber(str) {
     if (!str) return 0;
-    const parsed = parseInt(String(str).trim().replace(/\./g, ''), 10);
+    // "392 (38.43%)" gibi bir yapı gelirse sadece baştaki 392'yi alır
+    const cleanStr = String(str).split('(')[0].trim();
+    const parsed = parseInt(cleanStr.replace(/\./g, ''), 10);
     return isNaN(parsed) ? 0 : parsed;
 }
 
 function parsePercent(str) {
     if (!str) return 0;
+    // Parantez içindeki yüzdeyi yakalar: "392 (38.43%)" -> 38.43
     const match = String(str).match(/\(([\d.]+)%\)/);
-    return match ? parseFloat(match[1]) : 0;
+    if (match) return parseFloat(match[1]);
+    
+    // Parantez yoksa ama rakam varsa (Düz yüzde): "38.43" -> 38.43
+    const directMatch = String(str).match(/([\d.]+)/);
+    return directMatch ? parseFloat(directMatch[1]) : 0;
 }
 
 function getWeekRange() {
@@ -113,20 +120,21 @@ function extractHeaders($, table) {
         if (headers.nick !== undefined) return;
         $(row).find('td, th').each((i, el) => {
             const text = normalizeText($(el).text());
-            if (text.includes('nick')) headers.nick = i;
-            if (text.includes('oldurme') || text.includes('kill')) headers.kills = i;
-            if (text.includes('olum') || text.includes('death')) headers.deaths = i;
-            if (text.includes('mermi') || text.includes('damage')) headers.damage = i;
-            if (text.includes('headshot') || text.includes('hs')) headers.hs = i;
-            if (text.includes('hedef') || text.includes('acc')) headers.acc = i;
-            if (text.includes('sira') || text.includes('rank')) headers.rank = i;
+            // SENİN SUPABASE SÜTUN İSİMLERİNLE BİREBİR EŞLEŞME
+            if (text === 'sira') headers.sira = i;
+            if (text === 'nick') headers.nick = i;
+            if (text === 'oldurme') headers.oldurme = i;
+            if (text === 'headshot') headers.headshot = i;
+            if (text === 'olumler') headers.olumler = i;
+            if (text === 'mermiler') headers.mermiler = i;
+            if (text.includes('hedef')) headers.hedef_tutturma = i;
         });
     });
     return headers;
 }
 
 // ======================
-// ANA İŞLEM MERKEZİ
+// ANA İŞLEM MERKEZİ (Canlı Takip)
 // ======================
 
 async function startMonitoring() {
@@ -148,15 +156,15 @@ async function startMonitoring() {
             const nick = $(cols[headers.nick]).text().trim();
             if (!nick || nick.toUpperCase() === 'NICK' || nick === '---') return;
 
-            const kills = parseNumber($(cols[headers.kills]).text());
+            const kills = parseNumber($(cols[headers.oldurme]).text());
             players.push({
-                rank: parseNumber($(cols[headers.rank]).text()) || i,
-                nick,
-                total_kills: kills,
-                total_deaths: parseNumber($(cols[headers.deaths]).text()),
-                total_damage: parseNumber($(cols[headers.damage]).text()),
-                hs_percent: parsePercent($(cols[headers.hs]).text()),
-                accuracy: parsePercent($(cols[headers.acc]).text()),
+                sira: parseNumber($(cols[headers.sira]).text()) || i,
+                nick: nick,
+                oldurme: kills,
+                olumler: parseNumber($(cols[headers.olumler]).text()),
+                mermiler: parseNumber($(cols[headers.mermiler]).text()),
+                headshot: parsePercent($(cols[headers.headshot]).text()),
+                hedef_tutturma: parsePercent($(cols[headers.hedef_tutturma]).text()),
                 updated_at: new Date()
             });
             totalKills += kills;
@@ -186,6 +194,7 @@ async function startMonitoring() {
         } else {
             suspiciousFlag = false;
             lastGoodSnapshot = players.map(p => ({ ...p }));
+            // Canlı tabloyu (players) Türkçe sütunlarla günceller
             await supabase.from('players').upsert(players, { onConflict: 'nick' });
             await supabase.from('system_log').upsert({ id: 1, total_kills_sum: totalKills, last_fetch: new Date() });
             console.log(`✅ Güncellendi. Oyuncu: ${players.length}, Toplam Kill: ${totalKills}`);
@@ -193,19 +202,23 @@ async function startMonitoring() {
     } catch (err) { console.error("❌ Hata:", err.message); } finally { isRunning = false; }
 }
 
+// ======================
+// ARŞİVLEME (Mühürleme)
+// ======================
+
 async function archiveTheWeek(snapshot, oldKills, newKills) {
     try {
         const weekRange = getWeekRange();
         const cleanSnapshot = snapshot.filter(p => p.nick !== '---').slice(0, 15);
-        const weekId = crypto.createHash('md5').update(cleanSnapshot.map(p => p.nick + p.total_kills).join('|') + oldKills).digest('hex');
+        const weekId = crypto.createHash('md5').update(cleanSnapshot.map(p => p.nick + p.oldurme).join('|') + oldKills).digest('hex');
         
         const { data: exists } = await supabase.from('weekly_top15').select('week_id').eq('week_id', weekId).maybeSingle();
         if (exists) return;
 
         const rows = cleanSnapshot.map((p, i) => ({
             week_id: weekId, week_start: weekRange.start, week_end: weekRange.end,
-            rank: i + 1, nick: p.nick, kills: p.total_kills, deaths: p.total_deaths,
-            mermiler: p.total_damage, hs_percent: p.hs_percent, accuracy: p.accuracy
+            sira: i + 1, nick: p.nick, oldurme: p.oldurme, olumler: p.olumler,
+            mermiler: p.mermiler, headshot: p.headshot, hedef_tutturma: p.hedef_tutturma
         }));
 
         const { error: arcErr } = await supabase.from('weekly_top15').insert(rows);
@@ -228,6 +241,6 @@ async function archiveTheWeek(snapshot, oldKills, newKills) {
 app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 app.get('/status', (req, res) => { res.json({ ok: true, running: isRunning, archiving: isArchiving, time: new Date() }); });
 
-// BAŞLATMA
+// BAŞLATMA (Her 3 Dakikada Bir)
 cron.schedule('*/3 * * * *', () => { if (!isRunning && !isArchiving) startMonitoring(); });
 app.listen(port, () => { console.log("🚀 SERVER LIVE"); setTimeout(startMonitoring, 5000); });
