@@ -146,7 +146,7 @@
         
         if(error) {
             console.error("Supabase Error:", error);
-            if(!db.length) showError("Sunucuya ulaşılamıyor. Lütfen internet bağlantınızı kontrol edip sayfayı yenileyin.");
+            if(!db.length) showError("Sunucuya ulaşılamıyor. Lütfen sayfayı yenileyin.");
             return;
         }
 
@@ -162,7 +162,6 @@
         const newDb = Array.from(map.values());
         const rawCache = localStorage.getItem('archive_menu') || "[]";
         
-        // ChatGPT'nin uyardığı kıyaslama mantığı (String vs String)
         if(JSON.stringify(newDb) !== JSON.stringify(JSON.parse(rawCache))) {
             db = newDb;
             localStorage.setItem('archive_menu', JSON.stringify(db));
@@ -197,7 +196,6 @@
 
     wS.onchange = async () => {
         if(!wS.value) return;
-        
         const now = Date.now();
         if(now - lastRequestTime < 1000) return;
         lastRequestTime = now;
@@ -208,10 +206,11 @@
             try { render(JSON.parse(cachedData)); } catch(e) {}
         }
 
-        const {data, error} = await client.from("weekly_top15").select("*").eq("week_start", wS.value).order("rank");
+        // DÜZELTME: "rank" yerine veritabanındaki yeni ismimiz "sira"
+        const {data, error} = await client.from("weekly_top15").select("*").eq("week_start", wS.value).order("sira");
         
         if(error) {
-            showError("Veriler alınamadı, sunucu şu an yoğun olabilir.");
+            showError("Veriler alınamadı, sunucu yoğun olabilir.");
             return;
         }
 
@@ -229,7 +228,8 @@
     }
 
     function render(data){
-        const sorted = [...data].sort((a,b) => (Number(a.rank) || 99) - (Number(b.rank) || 99));
+        // DÜZELTME: Veritabanındaki yeni sütun isimlerimizle eşleme
+        const sorted = [...data].sort((a,b) => (Number(a.sira) || 99) - (Number(b.sira) || 99));
         if(sorted.length === 0) return;
 
         const list = [sorted[1], sorted[0], sorted[2]];
@@ -238,19 +238,20 @@
         ["second", "first", "third"].forEach((cls, i) => {
             const d = list[i];
             if(!d){ phtml += `<div class="podium-card" style="visibility:hidden"></div>`; return; }
-            phtml += `<div class="podium-card ${cls}"><div style="font-size:1.1rem">#${d.rank}</div><div class="podium-nick">${safe(d.nick)}</div><div style="font-size:0.9rem">${d.kills} Kills</div></div>`;
+            // DÜZELTME: d.rank -> d.sira ve d.kills -> d.oldurme
+            phtml += `<div class="podium-card ${cls}"><div style="font-size:1.1rem">#${d.sira}</div><div class="podium-nick">${safe(d.nick)}</div><div style="font-size:0.9rem">${d.oldurme} Kills</div></div>`;
         });
 
         document.getElementById("podium").innerHTML = phtml;
         document.getElementById("tbody").innerHTML = sorted.map(p => `
-            <tr class="${p.rank <= 3 ? 'highlight' : ''}" onclick="markRow(this)">
-                <td style="font-weight:bold; color:#d4af37">#${p.rank}</td>
+            <tr class="${p.sira <= 3 ? 'highlight' : ''}" onclick="markRow(this)">
+                <td style="font-weight:bold; color:#d4af37">#${p.sira}</td>
                 <td style="text-align:left; padding-left:15px;">${safe(p.nick)}</td>
-                <td>${p.kills || 0}</td>
-                <td>${p.hs_percent || 0}%</td>
-                <td>${p.deaths || 0}</td>
+                <td>${p.oldurme || 0}</td>
+                <td>${p.headshot || 0}%</td>
+                <td>${p.olumler || 0}</td>
                 <td>${p.mermiler || 0}</td>
-                <td>${p.accuracy || 0}%</td>
+                <td>${p.hedef_tutturma || 0}%</td>
             </tr>`).join("");
         document.getElementById("dataArea").style.display = "block";
     }
