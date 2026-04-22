@@ -17,7 +17,7 @@ const requiredEnv = ['SUPABASE_URL', 'SUPABASE_KEY', 'X_API_KEY', 'EMAIL_PASS'];
 requiredEnv.forEach(key => {
     if (!process.env[key]) {
         console.error(`❌ KRİTİK HATA: Environment Variable [${key}] eksik!`);
-        process.exit(1); 
+        process.exit(1);
     }
 });
 
@@ -25,35 +25,24 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
 
-// 🛡️ PROXY AYARI: Render üzerindeki Rate Limit uyarısını çözen kritik satır
 app.set('trust proxy', 1);
-
 const port = process.env.PORT || 10000;
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const PANEL_URL = "https://panel25.oyunyoneticisi.com/rank/index.php?ip=95.173.173.81";
 
-// 🛡️ 2. GÜVENLİK: Rate Limit
 const limiter = rateLimit({
     windowMs: 1 * 60 * 1000,
     max: 30,
     message: { error: "Çok fazla istek gönderildi!" }
 });
 
-// 🛡️ 3. GÜVENLİK: Nihai Middleware (Bekçi)
 app.use((req, res, next) => {
     const isApiRequest = req.path.startsWith('/status');
-    
-    if (req.method === 'GET' && !isApiRequest) {
-        return next();
-    }
-    
+    if (req.method === 'GET' && !isApiRequest) return next();
     const apiKey = req.headers['x-api-key'];
-    if (apiKey === process.env.X_API_KEY) {
-        return next();
-    }
-
-    return res.status(403).json({ error: "Erişim Reddedildi: Geçersiz veya eksik anahtar." });
+    if (apiKey === process.env.X_API_KEY) return next();
+    return res.status(403).json({ error: "Erişim Reddedildi." });
 });
 
 app.use('/status', limiter);
@@ -72,7 +61,7 @@ let suspiciousFlag = false;
 let lastGoodSnapshot = [];
 
 // ======================
-// YARDIMCI ARAÇLAR (Paneldeki Karışık Verileri Çözen Kısım)
+// YARDIMCI ARAÇLAR
 // ======================
 
 function normalizeText(text) {
@@ -83,7 +72,6 @@ function normalizeText(text) {
 
 function parseNumber(str) {
     if (!str) return 0;
-    // "392 (38.43%)" gibi bir yapı gelirse sadece baştaki 392'yi alır
     const cleanStr = String(str).split('(')[0].trim();
     const parsed = parseInt(cleanStr.replace(/\./g, ''), 10);
     return isNaN(parsed) ? 0 : parsed;
@@ -91,11 +79,8 @@ function parseNumber(str) {
 
 function parsePercent(str) {
     if (!str) return 0;
-    // Parantez içindeki yüzdeyi yakalar: "392 (38.43%)" -> 38.43
     const match = String(str).match(/\(([\d.]+)%\)/);
     if (match) return parseFloat(match[1]);
-    
-    // Parantez yoksa ama rakam varsa (Düz yüzde): "38.43" -> 38.43
     const directMatch = String(str).match(/([\d.]+)/);
     return directMatch ? parseFloat(directMatch[1]) : 0;
 }
@@ -120,13 +105,13 @@ function extractHeaders($, table) {
         if (headers.nick !== undefined) return;
         $(row).find('td, th').each((i, el) => {
             const text = normalizeText($(el).text());
-            // SENİN SUPABASE SÜTUN İSİMLERİNLE BİREBİR EŞLEŞME
-            if (text === 'sira') headers.sira = i;
-            if (text === 'nick') headers.nick = i;
-            if (text === 'oldurme') headers.oldurme = i;
-            if (text === 'headshot') headers.headshot = i;
-            if (text === 'olumler') headers.olumler = i;
-            if (text === 'mermiler') headers.mermiler = i;
+            // Daha sağlam eşleşme için .includes kullandık
+            if (text.includes('sira')) headers.sira = i;
+            if (text.includes('nick')) headers.nick = i;
+            if (text.includes('oldurme')) headers.oldurme = i;
+            if (text.includes('headshot')) headers.headshot = i;
+            if (text.includes('olumler')) headers.olumler = i;
+            if (text.includes('mermiler')) headers.mermiler = i;
             if (text.includes('hedef')) headers.hedef_tutturma = i;
         });
     });
@@ -134,7 +119,7 @@ function extractHeaders($, table) {
 }
 
 // ======================
-// ANA İŞLEM MERKEZİ (Canlı Takip)
+// ANA İŞLEM MERKEZİ
 // ======================
 
 async function startMonitoring() {
@@ -156,23 +141,24 @@ async function startMonitoring() {
             const nick = $(cols[headers.nick]).text().trim();
             if (!nick || nick.toUpperCase() === 'NICK' || nick === '---') return;
 
-            const kills = parseNumber($(cols[headers.oldurme]).text());
+            const currentKills = parseNumber($(cols[headers.oldurme]).text());
             players.push({
                 sira: parseNumber($(cols[headers.sira]).text()) || i,
                 nick: nick,
-                oldurme: kills,
+                oldurme: currentKills,
                 olumler: parseNumber($(cols[headers.olumler]).text()),
                 mermiler: parseNumber($(cols[headers.mermiler]).text()),
                 headshot: parsePercent($(cols[headers.headshot]).text()),
                 hedef_tutturma: parsePercent($(cols[headers.hedef_tutturma]).text()),
                 updated_at: new Date()
             });
-            totalKills += kills;
+            totalKills += currentKills;
         });
 
         const { data: log, error: logErr } = await supabase.from('system_log').select('*').eq('id', 1).maybeSingle();
         if (logErr) throw logErr;
 
+        // DB'den yedek al (Snapshot)
         if (lastGoodSnapshot.length === 0) {
             const { data: dbPlayers } = await supabase.from('players').select('*');
             if (dbPlayers) lastGoodSnapshot = dbPlayers;
@@ -183,37 +169,46 @@ async function startMonitoring() {
             return;
         }
 
+        // Sıfırlama kontrolü (%30'un altına düşerse)
         const isReset = log.total_kills_sum > 2000 && totalKills < (log.total_kills_sum * 0.30);
         
         if (isReset) {
-            if (!suspiciousFlag) { suspiciousFlag = true; return; }
+            if (!suspiciousFlag) { 
+                suspiciousFlag = true; 
+                console.log("⚠️ Sıfırlama algılandı, teyit bekleniyor...");
+                isRunning = false; // Bir sonraki turda teyit etsin
+                return; 
+            }
             isArchiving = true;
+            console.log("🛡️ Sıfırlama onaylandı. Arşivleme başlıyor...");
             if (lastGoodSnapshot.length >= 5) await archiveTheWeek(lastGoodSnapshot, log.total_kills_sum, totalKills);
             suspiciousFlag = false;
             isArchiving = false;
         } else {
             suspiciousFlag = false;
             lastGoodSnapshot = players.map(p => ({ ...p }));
-            // Canlı tabloyu (players) Türkçe sütunlarla günceller
-            await supabase.from('players').upsert(players, { onConflict: 'nick' });
+            // Veritabanını güncelle
+            const { error: upsertErr } = await supabase.from('players').upsert(players, { onConflict: 'nick' });
+            if (upsertErr) console.error("❌ Upsert Hatası:", upsertErr.message);
+            
             await supabase.from('system_log').upsert({ id: 1, total_kills_sum: totalKills, last_fetch: new Date() });
             console.log(`✅ Güncellendi. Oyuncu: ${players.length}, Toplam Kill: ${totalKills}`);
         }
-    } catch (err) { console.error("❌ Hata:", err.message); } finally { isRunning = false; }
+    } catch (err) { console.error("❌ Takip Hatası:", err.message); } finally { isRunning = false; }
 }
-
-// ======================
-// ARŞİVLEME (Mühürleme)
-// ======================
 
 async function archiveTheWeek(snapshot, oldKills, newKills) {
     try {
         const weekRange = getWeekRange();
         const cleanSnapshot = snapshot.filter(p => p.nick !== '---').slice(0, 15);
+        // MD5 ile benzersiz hafta ID oluştur
         const weekId = crypto.createHash('md5').update(cleanSnapshot.map(p => p.nick + p.oldurme).join('|') + oldKills).digest('hex');
         
         const { data: exists } = await supabase.from('weekly_top15').select('week_id').eq('week_id', weekId).maybeSingle();
-        if (exists) return;
+        if (exists) {
+            console.log("ℹ️ Bu hafta zaten arşivlenmiş.");
+            return;
+        }
 
         const rows = cleanSnapshot.map((p, i) => ({
             week_id: weekId, week_start: weekRange.start, week_end: weekRange.end,
@@ -224,6 +219,7 @@ async function archiveTheWeek(snapshot, oldKills, newKills) {
         const { error: arcErr } = await supabase.from('weekly_top15').insert(rows);
         if (arcErr) throw arcErr;
 
+        // Canlı tabloyu temizle ve logu yeni değere çek
         await supabase.from('players').delete().neq('nick', '---');
         await supabase.from('system_log').upsert({ id: 1, total_kills_sum: newKills });
 
@@ -237,10 +233,8 @@ async function archiveTheWeek(snapshot, oldKills, newKills) {
     } catch (err) { console.error("❌ Arşiv Hatası:", err.message); }
 }
 
-// YOLLAR
 app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 app.get('/status', (req, res) => { res.json({ ok: true, running: isRunning, archiving: isArchiving, time: new Date() }); });
 
-// BAŞLATMA (Her 3 Dakikada Bir)
 cron.schedule('*/3 * * * *', () => { if (!isRunning && !isArchiving) startMonitoring(); });
 app.listen(port, () => { console.log("🚀 SERVER LIVE"); setTimeout(startMonitoring, 5000); });
