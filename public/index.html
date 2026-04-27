@@ -244,6 +244,7 @@
         ["second", "first", "third"].forEach((cls, i) => {
             const d = list[i];
             if(!d){ phtml += `<div class="podium-card" style="visibility:hidden"></div>`; return; }
+            // Podyumda sadece öldürme sayısını göstermek daha şık durduğu için d.oldurme'yi bırakıyoruz.
             phtml += `<div class="podium-card ${cls}"><div style="font-size:1.1rem">#${d.sira}</div><div class="podium-nick">${safe(d.nick)}</div><div style="font-size:0.9rem">${d.oldurme} Öldürme</div></div>`;
         });
 
@@ -253,10 +254,10 @@
                 <td style="font-weight:bold; color:#d4af37">#${p.sira}</td>
                 <td style="text-align:left; padding-left:15px;">${safe(p.nick)}</td>
                 <td>${p.oldurme || 0}</td>
-                <td>${p.headshot || 0}%</td>
-                <td>${p.olumler || 0}</td>
+                <td>${p.headshot || "0 (0%)"}</td>
+                <td>${p.olumler || "0 (0%)"}</td>
                 <td>${p.mermiler || 0}</td>
-                <td>${p.hedef_tutturma || 0}%</td>
+                <td>${p.hedef_tutturma || "0 (0%)"}</td>
             </tr>`).join("");
         document.getElementById("dataArea").style.display = "block";
     }
