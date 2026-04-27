@@ -64,6 +64,23 @@ let lastGoodSnapshot = [];
 // YARDIMCI ARAÇLAR
 // ======================
 
+/**
+ * 🛠️ YENİ: Hata Yönetimi
+ * Hataları hem konsola basar hem de Supabase 'error_logs' tablosuna yazar.
+ */
+async function logErrorToDb(module, err) {
+    console.error(`❌ [${module}]:`, err.message);
+    try {
+        await supabase.from('error_logs').insert({
+            module: module,
+            message: err.message,
+            stack: err.stack
+        });
+    } catch (dbErr) {
+        console.error("Hata loglanırken DB hatası oluştu:", dbErr.message);
+    }
+}
+
 function normalizeText(text) {
     return text.toLowerCase().trim()
         .replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ü/g, 'u')
@@ -105,7 +122,6 @@ function extractHeaders($, table) {
         if (headers.nick !== undefined) return;
         $(row).find('td, th').each((i, el) => {
             const text = normalizeText($(el).text());
-            // Daha sağlam eşleşme için .includes kullandık
             if (text.includes('sira')) headers.sira = i;
             if (text.includes('nick')) headers.nick = i;
             if (text.includes('oldurme')) headers.oldurme = i;
@@ -142,14 +158,16 @@ async function startMonitoring() {
             if (!nick || nick.toUpperCase() === 'NICK' || nick === '---') return;
 
             const currentKills = parseNumber($(cols[headers.oldurme]).text());
+            
+            // ✅ GÜNCELLEME: Verileri parçalamadan, "zengin" (Sayı + Yüzde) haliyle alıyoruz
             players.push({
                 sira: parseNumber($(cols[headers.sira]).text()) || i,
                 nick: nick,
                 oldurme: currentKills,
-                olumler: parseNumber($(cols[headers.olumler]).text()),
+                olumler: $(cols[headers.olumler]).text().trim(),
                 mermiler: parseNumber($(cols[headers.mermiler]).text()),
-                headshot: parsePercent($(cols[headers.headshot]).text()),
-                hedef_tutturma: parsePercent($(cols[headers.hedef_tutturma]).text()),
+                headshot: $(cols[headers.headshot]).text().trim(),
+                hedef_tutturma: $(cols[headers.hedef_tutturma]).text().trim(),
                 updated_at: new Date()
             });
             totalKills += currentKills;
@@ -158,7 +176,6 @@ async function startMonitoring() {
         const { data: log, error: logErr } = await supabase.from('system_log').select('*').eq('id', 1).maybeSingle();
         if (logErr) throw logErr;
 
-        // DB'den yedek al (Snapshot)
         if (lastGoodSnapshot.length === 0) {
             const { data: dbPlayers } = await supabase.from('players').select('*');
             if (dbPlayers) lastGoodSnapshot = dbPlayers;
@@ -169,14 +186,13 @@ async function startMonitoring() {
             return;
         }
 
-        // Sıfırlama kontrolü (%30'un altına düşerse)
         const isReset = log.total_kills_sum > 2000 && totalKills < (log.total_kills_sum * 0.30);
         
         if (isReset) {
             if (!suspiciousFlag) { 
                 suspiciousFlag = true; 
                 console.log("⚠️ Sıfırlama algılandı, teyit bekleniyor...");
-                isRunning = false; // Bir sonraki turda teyit etsin
+                isRunning = false; 
                 return; 
             }
             isArchiving = true;
@@ -187,21 +203,31 @@ async function startMonitoring() {
         } else {
             suspiciousFlag = false;
             lastGoodSnapshot = players.map(p => ({ ...p }));
-            // Veritabanını güncelle
             const { error: upsertErr } = await supabase.from('players').upsert(players, { onConflict: 'nick' });
             if (upsertErr) console.error("❌ Upsert Hatası:", upsertErr.message);
             
             await supabase.from('system_log').upsert({ id: 1, total_kills_sum: totalKills, last_fetch: new Date() });
             console.log(`✅ Güncellendi. Oyuncu: ${players.length}, Toplam Kill: ${totalKills}`);
         }
-    } catch (err) { console.error("❌ Takip Hatası:", err.message); } finally { isRunning = false; }
+    } catch (err) { 
+        // 🛡️ Hata DB'ye kaydediliyor
+        await logErrorToDb('MONITOR', err); 
+    } finally { 
+        isRunning = false; 
+    }
 }
 
 async function archiveTheWeek(snapshot, oldKills, newKills) {
     try {
         const weekRange = getWeekRange();
-        const cleanSnapshot = snapshot.filter(p => p.nick !== '---').slice(0, 15);
-        // MD5 ile benzersiz hafta ID oluştur
+        
+        // ✅ GÜNCELLEME: Sıralama yaparken veriler metin (Örn: "10 (20%)") olduğu için 
+        // matematiksel işlemde parseNumber kullanarak sadece sayısal kısmı baz alıyoruz.
+        const cleanSnapshot = snapshot
+            .filter(p => p.nick !== '---')
+            .sort((a, b) => (b.oldurme - parseNumber(b.olumler)) - (a.oldurme - parseNumber(a.olumler)))
+            .slice(0, 15);
+
         const weekId = crypto.createHash('md5').update(cleanSnapshot.map(p => p.nick + p.oldurme).join('|') + oldKills).digest('hex');
         
         const { data: exists } = await supabase.from('weekly_top15').select('week_id').eq('week_id', weekId).maybeSingle();
@@ -219,7 +245,6 @@ async function archiveTheWeek(snapshot, oldKills, newKills) {
         const { error: arcErr } = await supabase.from('weekly_top15').insert(rows);
         if (arcErr) throw arcErr;
 
-        // Canlı tabloyu temizle ve logu yeni değere çek
         await supabase.from('players').delete().neq('nick', '---');
         await supabase.from('system_log').upsert({ id: 1, total_kills_sum: newKills });
 
@@ -230,7 +255,10 @@ async function archiveTheWeek(snapshot, oldKills, newKills) {
             text: `${weekRange.start} - ${weekRange.end} başarıyla arşivlendi.`
         }).catch(() => {});
         console.log("🏆 ARŞİV BAŞARILI");
-    } catch (err) { console.error("❌ Arşiv Hatası:", err.message); }
+    } catch (err) { 
+        // 🛡️ Hata DB'ye kaydediliyor
+        await logErrorToDb('ARCHIVE', err); 
+    }
 }
 
 app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
