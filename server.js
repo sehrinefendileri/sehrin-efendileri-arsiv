@@ -37,11 +37,26 @@ const limiter = rateLimit({
     message: { error: "Çok fazla istek gönderildi!" }
 });
 
+// ✅ DÜZELTİLDİ: /status endpoint artık public
 app.use((req, res, next) => {
-    const isApiRequest = req.path.startsWith('/status');
-    if (req.method === 'GET' && !isApiRequest) return next();
+
+    // Healthcheck endpoint herkese açık
+    if (req.path === '/status') {
+        return next();
+    }
+
+    // Normal GET istekleri açık
+    if (req.method === 'GET') {
+        return next();
+    }
+
+    // Diğer tüm işlemler API key ister
     const apiKey = req.headers['x-api-key'];
-    if (apiKey === process.env.X_API_KEY) return next();
+
+    if (apiKey === process.env.X_API_KEY) {
+        return next();
+    }
+
     return res.status(403).json({ error: "Erişim Reddedildi." });
 });
 
@@ -141,24 +156,42 @@ function extractHeaders($, table) {
 async function startMonitoring() {
     if (isRunning || isArchiving) return;
     isRunning = true;
+
     try {
-        const response = await axios.get(PANEL_URL, { timeout: 20000, headers: { 'User-Agent': 'Mozilla/5.0' } });
+
+        // ✅ DÜZELTİLDİ: Timeout 20s → 5s
+        const response = await axios.get(PANEL_URL, {
+            timeout: 5000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0'
+            }
+        });
+
         const $ = cheerio.load(response.data);
         const table = $('table#table1').first();
-        if (!table.length) throw new Error("Panel Tablosu bulunamadı");
+
+        if (!table.length) {
+            throw new Error("Panel Tablosu bulunamadı");
+        }
 
         const headers = extractHeaders($, table);
         const players = [];
         let totalKills = 0;
 
         table.find('tr').each((i, el) => {
+
             const cols = $(el).find('td');
+
             if (cols.length < 5) return;
+
             const nick = $(cols[headers.nick]).text().trim();
-            if (!nick || nick.toUpperCase() === 'NICK' || nick === '---') return;
+
+            if (!nick || nick.toUpperCase() === 'NICK' || nick === '---') {
+                return;
+            }
 
             const currentKills = parseNumber($(cols[headers.oldurme]).text());
-            
+
             // ✅ GÜNCELLEME: Verileri parçalamadan, "zengin" (Sayı + Yüzde) haliyle alıyoruz
             players.push({
                 sira: parseNumber($(cols[headers.sira]).text()) || i,
@@ -170,83 +203,175 @@ async function startMonitoring() {
                 hedef_tutturma: $(cols[headers.hedef_tutturma]).text().trim(),
                 updated_at: new Date()
             });
+
             totalKills += currentKills;
         });
 
-        const { data: log, error: logErr } = await supabase.from('system_log').select('*').eq('id', 1).maybeSingle();
+        const { data: log, error: logErr } = await supabase
+            .from('system_log')
+            .select('*')
+            .eq('id', 1)
+            .maybeSingle();
+
         if (logErr) throw logErr;
 
         if (lastGoodSnapshot.length === 0) {
-            const { data: dbPlayers } = await supabase.from('players').select('*');
-            if (dbPlayers) lastGoodSnapshot = dbPlayers;
+
+            const { data: dbPlayers } = await supabase
+                .from('players')
+                .select('*');
+
+            if (dbPlayers) {
+                lastGoodSnapshot = dbPlayers;
+            }
         }
 
         if (!log) {
-            await supabase.from('system_log').upsert({ id: 1, total_kills_sum: totalKills });
+
+            await supabase
+                .from('system_log')
+                .upsert({
+                    id: 1,
+                    total_kills_sum: totalKills
+                });
+
             return;
         }
 
-        const isReset = log.total_kills_sum > 2000 && totalKills < (log.total_kills_sum * 0.30);
-        
+        const isReset =
+            log.total_kills_sum > 2000 &&
+            totalKills < (log.total_kills_sum * 0.30);
+
         if (isReset) {
-            if (!suspiciousFlag) { 
-                suspiciousFlag = true; 
+
+            if (!suspiciousFlag) {
+
+                suspiciousFlag = true;
+
                 console.log("⚠️ Sıfırlama algılandı, teyit bekleniyor...");
-                isRunning = false; 
-                return; 
+
+                isRunning = false;
+
+                return;
             }
+
             isArchiving = true;
+
             console.log("🛡️ Sıfırlama onaylandı. Arşivleme başlıyor...");
-            if (lastGoodSnapshot.length >= 5) await archiveTheWeek(lastGoodSnapshot, log.total_kills_sum, totalKills);
+
+            if (lastGoodSnapshot.length >= 5) {
+                await archiveTheWeek(
+                    lastGoodSnapshot,
+                    log.total_kills_sum,
+                    totalKills
+                );
+            }
+
             suspiciousFlag = false;
             isArchiving = false;
+
         } else {
+
             suspiciousFlag = false;
+
             lastGoodSnapshot = players.map(p => ({ ...p }));
-            const { error: upsertErr } = await supabase.from('players').upsert(players, { onConflict: 'nick' });
-            if (upsertErr) console.error("❌ Upsert Hatası:", upsertErr.message);
-            
-            await supabase.from('system_log').upsert({ id: 1, total_kills_sum: totalKills, last_fetch: new Date() });
+
+            const { error: upsertErr } = await supabase
+                .from('players')
+                .upsert(players, { onConflict: 'nick' });
+
+            if (upsertErr) {
+                console.error("❌ Upsert Hatası:", upsertErr.message);
+            }
+
+            await supabase
+                .from('system_log')
+                .upsert({
+                    id: 1,
+                    total_kills_sum: totalKills,
+                    last_fetch: new Date()
+                });
+
             console.log(`✅ Güncellendi. Oyuncu: ${players.length}, Toplam Kill: ${totalKills}`);
         }
-    } catch (err) { 
+
+    } catch (err) {
+
         // 🛡️ Hata DB'ye kaydediliyor
-        await logErrorToDb('MONITOR', err); 
-    } finally { 
-        isRunning = false; 
+        await logErrorToDb('MONITOR', err);
+
+    } finally {
+
+        isRunning = false;
     }
 }
 
 async function archiveTheWeek(snapshot, oldKills, newKills) {
+
     try {
+
         const weekRange = getWeekRange();
-        
-        // ✅ GÜNCELLEME: Sıralama yaparken veriler metin (Örn: "10 (20%)") olduğu için 
+
+        // ✅ GÜNCELLEME: Sıralama yaparken veriler metin (Örn: "10 (20%)") olduğu için
         // matematiksel işlemde parseNumber kullanarak sadece sayısal kısmı baz alıyoruz.
         const cleanSnapshot = snapshot
             .filter(p => p.nick !== '---')
-            .sort((a, b) => (b.oldurme - parseNumber(b.olumler)) - (a.oldurme - parseNumber(a.olumler)))
+            .sort((a, b) =>
+                (b.oldurme - parseNumber(b.olumler)) -
+                (a.oldurme - parseNumber(a.olumler))
+            )
             .slice(0, 15);
 
-        const weekId = crypto.createHash('md5').update(cleanSnapshot.map(p => p.nick + p.oldurme).join('|') + oldKills).digest('hex');
-        
-        const { data: exists } = await supabase.from('weekly_top15').select('week_id').eq('week_id', weekId).maybeSingle();
+        const weekId = crypto
+            .createHash('md5')
+            .update(
+                cleanSnapshot
+                    .map(p => p.nick + p.oldurme)
+                    .join('|') + oldKills
+            )
+            .digest('hex');
+
+        const { data: exists } = await supabase
+            .from('weekly_top15')
+            .select('week_id')
+            .eq('week_id', weekId)
+            .maybeSingle();
+
         if (exists) {
             console.log("ℹ️ Bu hafta zaten arşivlenmiş.");
             return;
         }
 
         const rows = cleanSnapshot.map((p, i) => ({
-            week_id: weekId, week_start: weekRange.start, week_end: weekRange.end,
-            sira: i + 1, nick: p.nick, oldurme: p.oldurme, olumler: p.olumler,
-            mermiler: p.mermiler, headshot: p.headshot, hedef_tutturma: p.hedef_tutturma
+            week_id: weekId,
+            week_start: weekRange.start,
+            week_end: weekRange.end,
+            sira: i + 1,
+            nick: p.nick,
+            oldurme: p.oldurme,
+            olumler: p.olumler,
+            mermiler: p.mermiler,
+            headshot: p.headshot,
+            hedef_tutturma: p.hedef_tutturma
         }));
 
-        const { error: arcErr } = await supabase.from('weekly_top15').insert(rows);
+        const { error: arcErr } = await supabase
+            .from('weekly_top15')
+            .insert(rows);
+
         if (arcErr) throw arcErr;
 
-        await supabase.from('players').delete().neq('nick', '---');
-        await supabase.from('system_log').upsert({ id: 1, total_kills_sum: newKills });
+        await supabase
+            .from('players')
+            .delete()
+            .neq('nick', '---');
+
+        await supabase
+            .from('system_log')
+            .upsert({
+                id: 1,
+                total_kills_sum: newKills
+            });
 
         transporter.sendMail({
             from: '"Arşiv" <leventistemi@hotmail.com>',
@@ -254,15 +379,39 @@ async function archiveTheWeek(snapshot, oldKills, newKills) {
             subject: `🛡️ Hafta Mühürlendi: ${weekRange.start}`,
             text: `${weekRange.start} - ${weekRange.end} başarıyla arşivlendi.`
         }).catch(() => {});
+
         console.log("🏆 ARŞİV BAŞARILI");
-    } catch (err) { 
+
+    } catch (err) {
+
         // 🛡️ Hata DB'ye kaydediliyor
-        await logErrorToDb('ARCHIVE', err); 
+        await logErrorToDb('ARCHIVE', err);
     }
 }
 
-app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
-app.get('/status', (req, res) => { res.json({ ok: true, running: isRunning, archiving: isArchiving, time: new Date() }); });
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
-cron.schedule('*/3 * * * *', () => { if (!isRunning && !isArchiving) startMonitoring(); });
-app.listen(port, () => { console.log("🚀 SERVER LIVE"); setTimeout(startMonitoring, 5000); });
+app.get('/status', (req, res) => {
+    res.json({
+        ok: true,
+        running: isRunning,
+        archiving: isArchiving,
+        time: new Date()
+    });
+});
+
+cron.schedule('*/3 * * * *', () => {
+
+    if (!isRunning && !isArchiving) {
+        startMonitoring();
+    }
+});
+
+app.listen(port, () => {
+
+    console.log("🚀 SERVER LIVE");
+
+    setTimeout(startMonitoring, 5000);
+});
