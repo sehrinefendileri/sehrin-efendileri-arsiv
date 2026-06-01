@@ -14,25 +14,42 @@
         .archive-desc { color: #ccc; font-size: 1.1rem; margin-bottom: 20px; line-height: 1.6; }
         .filters { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
         select { padding: 10px 20px; background: black; color: #d4af37; border: 2px solid #d4af37; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        
-        /* Tablo Stilleri */
-        .table-wrap { overflow-x: auto; border-radius: 12px; background: rgba(0,0,0,0.8); border: 1px solid rgba(212, 175, 55, 0.3); margin-top: 30px; }
+        select:disabled { opacity: 0.5; cursor: not-allowed; }
+        .podium { display: flex; justify-content: center; align-items: flex-end; gap: 10px; margin: 30px 0; }
+        .podium-card { width: 150px; padding: 15px; border-radius: 10px; color: black; font-weight: bold; box-shadow: 0 5px 15px rgba(0,0,0,0.5); display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+        .podium-nick { font-size: 0.85rem; word-break: break-all; margin: 10px 0; line-height: 1.2; max-height: 3em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .first { background: gold; height: 160px; order: 2; border: 2px solid #fff; }
+        .second { background: silver; height: 130px; order: 1; }
+        .third { background: #cd7f32; height: 110px; order: 3; }
+        .table-wrap { overflow-x: auto; border-radius: 12px; background: rgba(0,0,0,0.8); border: 1px solid rgba(212, 175, 55, 0.3); }
         table { width: 100%; border-collapse: collapse; min-width: 800px; }
-        th { background: #d4af37; color: black; padding: 12px 15px; text-transform: uppercase; font-size: 0.8rem; font-weight: bold; text-align: center; }
-        td { padding: 12px 10px; border-bottom: 1px solid #222; font-size: 0.95rem; cursor: pointer; text-align: center; }
-        th:nth-child(2), td:nth-child(2) { text-align: left; padding-left: 20px; }
-        
-        /* İlk 3 Satır Vurguları */
-        .top-1 { background: linear-gradient(90deg, rgba(212, 175, 55, 0.25), transparent) !important; border-left: 4px solid #d4af37; }
-        .top-2 { background: linear-gradient(90deg, rgba(192, 192, 192, 0.2), transparent) !important; border-left: 4px solid silver; }
-        .top-3 { background: linear-gradient(90deg, rgba(205, 127, 50, 0.2), transparent) !important; border-left: 4px solid #cd7f32; }
-        .selected-row td { background: rgba(212, 175, 55, 0.4) !important; color: #fff !important; }
-        
+        th { background: gold; color: black; padding: 12px 10px; text-transform: uppercase; font-size: 0.75rem; position: sticky; top: 0; z-index: 30; }
+        td { padding: 10px; border-bottom: 1px solid #222; font-size: 0.9rem; }
+        th:nth-child(2), td:nth-child(2) { position: sticky; left: 0; background: #111 !important; z-index: 25; min-width: 140px; box-shadow: 2px 0 0 0 #d4af37; }
+        th:nth-child(2) { z-index: 31; background: gold !important; box-shadow: 2px 0 0 0 gold; }
+        tbody tr:hover td { background: rgba(212, 175, 55, 0.2) !important; }
+        .selected-row td { background: rgba(212, 175, 55, 0.4) !important; color: #fff !important; border-top: 1px solid gold; border-bottom: 1px solid gold; }
+        .selected-row td:nth-child(2) { background: #222 !important; }
+        .highlight { background: rgba(212, 175, 55, 0.08); }
         .error-msg { color: #ff4d4d; background: rgba(255,0,0,0.1); padding: 12px; border: 1px solid #ff4d4d; border-radius: 5px; margin: 15px 0; display: none; font-weight: bold; }
+        
+        /* Eklenen Yeni Sıralama Renkleri */
+        .sira-1 { color: gold !important; font-size: 1.05rem; }
+        .sira-2 { color: silver !important; font-size: 1.05rem; }
+        .sira-3 { color: #cd7f32 !important; font-size: 1.05rem; }
+        .sira-other { color: #d4af37; }
+
         @media (max-width: 768px) {
             h1 { font-size: 1.6rem; letter-spacing: 2px; }
             .archive-desc { font-size: 0.85rem; padding: 0 10px; }
+            .podium { gap: 5px; margin: 20px 0; }
+            .podium-card { width: 32%; padding: 10px 5px; min-height: 100px; }
+            .podium-nick { font-size: 0.7rem; }
+            .first { height: 140px; }
+            .second { height: 120px; }
+            .third { height: 100px; }
             td, th { padding: 8px 5px; font-size: 0.75rem; }
+            th:nth-child(2), td:nth-child(2) { min-width: 100px; }
         }
     </style>
 </head>
@@ -50,10 +67,19 @@
             </div>
         </div>
         <div id="dataArea" style="display:none;">
+            <div id="podium" class="podium"></div>
             <div class="table-wrap">
                 <table>
                     <thead>
-                        <tr><th>RANK</th><th>NİCK</th><th>KILL</th><th>HS</th><th>ÖLÜM</th><th>MERMİ</th><th>HEDEF</th></tr>
+                        <tr>
+                            <th>SIRA</th>
+                            <th>NİCK</th>
+                            <th>ÖLDÜRME</th>
+                            <th>HEADSHOT</th>
+                            <th>ÖLÜMLER</th>
+                            <th>MERMİLER</th>
+                            <th>HEDEF TUTTURMA</th>
+                        </tr>
                     </thead>
                     <tbody id="tbody"></tbody>
                 </table>
@@ -61,79 +87,199 @@
         </div>
     </div>
 </div>
+
 <script>
 (function(){
     const SUPABASE_URL = "https://cyeklyjeszniowopawpc.supabase.co";
     const SUPABASE_KEY = "sb_publishable_RUhk34F8aZiNcgIDIZAwCA_8ZATrGh0";
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
     let db = [];
     const aylar = ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN", "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"];
-    
+    let selectionInProgress = false;
+    let lastRequestTime = 0;
+
     const yS = document.getElementById("yS"), mS = document.getElementById("mS"), wS = document.getElementById("wS");
     const errorBox = document.getElementById("errorBox");
 
-    const safe = (s) => { const div = document.createElement("div"); div.textContent = s || ""; return div.innerHTML; };
-    const showError = (msg) => { errorBox.textContent = msg; errorBox.style.display = "block"; setTimeout(() => { errorBox.style.display = "none"; }, 6000); };
-    const formatDate = (dateStr) => { if(!dateStr) return ""; const [y, m, d] = dateStr.split("-"); return `${d}.${m}.${y}`; };
+    const showError = (msg) => {
+        errorBox.textContent = msg;
+        errorBox.style.display = "block";
+        setTimeout(() => { errorBox.style.display = "none"; }, 6000);
+    };
+
+    const safe = (s) => {
+        const div = document.createElement("div");
+        div.textContent = s || "";
+        return div.innerHTML;
+    };
+
+    const formatDate = (dateStr) => {
+        if(!dateStr) return "";
+        const [y, m, d] = dateStr.split("-");
+        return `${d}.${m}.${y}`;
+    };
 
     function renderFilters() {
+        const currentYear = yS.value;
         yS.innerHTML = `<option value="">Yıl</option>`;
-        [...new Set(db.map(x => x.y))].sort((a,b) => b-a).forEach(y => { yS.innerHTML += `<option value="${y}">${y}</option>`; });
+        const years = [...new Set(db.map(x => x.y))].sort((a,b) => b-a);
+        years.forEach(y => { yS.innerHTML += `<option value="${y}">${y}</option>`; });
+        if(currentYear) yS.value = currentYear;
+    }
+
+    function selectLatest() {
+        if (db.length > 0 && !selectionInProgress) {
+            selectionInProgress = true;
+            const latest = db[0]; 
+            yS.value = latest.y;
+            yS.dispatchEvent(new Event('change')); 
+            
+            setTimeout(() => {
+                mS.value = latest.m;
+                mS.dispatchEvent(new Event('change')); 
+                setTimeout(() => {
+                    wS.value = latest.s;
+                    wS.dispatchEvent(new Event('change'));
+                    selectionInProgress = false;
+                }, 200);
+            }, 200);
+        }
     }
 
     async function init(){
+        const cachedMenu = localStorage.getItem('archive_menu');
+        if(cachedMenu) {
+            try {
+                db = JSON.parse(cachedMenu);
+                renderFilters();
+                selectLatest();
+            } catch(e) { localStorage.removeItem('archive_menu'); }
+        }
+        
         const {data, error} = await client.from("weekly_top15").select("week_start,week_end").order("week_end", {ascending: false});
-        if(error) return;
+        
+        if(error) {
+            console.error("Supabase Error:", error);
+            if(!db.length) showError("Sunucuya ulaşılamıyor. Lütfen sayfayı yenileyin.");
+            return;
+        }
+
         const map = new Map();
         data.forEach(w => {
             const key = w.week_start + "|" + w.week_end;
-            if(!map.has(key)){ const d = new Date(w.week_start); map.set(key, { s: w.week_start, y: d.getFullYear(), m: d.getMonth(), label: `${formatDate(w.week_start)} - ${formatDate(w.week_end)}` }); }
+            if(!map.has(key)){
+                const d = new Date(w.week_start);
+                map.set(key, { s: w.week_start, y: d.getFullYear(), m: d.getMonth(), label: `${formatDate(w.week_start)} - ${formatDate(w.week_end)}` });
+            }
         });
-        db = Array.from(map.values()); renderFilters();
+
+        const newDb = Array.from(map.values());
+        const rawCache = localStorage.getItem('archive_menu') || "[]";
+        
+        if(JSON.stringify(newDb) !== JSON.stringify(JSON.parse(rawCache))) {
+            db = newDb;
+            localStorage.setItem('archive_menu', JSON.stringify(db));
+            renderFilters();
+            if(!selectionInProgress) selectLatest();
+        }
     }
 
     yS.onchange = () => {
-        mS.innerHTML = `<option value="">Ay</option>`; wS.innerHTML = `<option value="">Hafta</option>`; wS.disabled = true; document.getElementById("dataArea").style.display = "none";
+        mS.innerHTML = `<option value="">Ay</option>`;
+        wS.innerHTML = `<option value="">Hafta</option>`;
+        wS.disabled = true;
+        document.getElementById("dataArea").style.display = "none";
         if(!yS.value){ mS.disabled = true; return; }
-        [...new Set(db.filter(d => d.y == yS.value).map(d => d.m))].sort((a,b)=>b-a).forEach(m => { mS.innerHTML += `<option value="${m}">${aylar[m]}</option>`; });
+        
+        [...new Set(db.filter(d => d.y == yS.value).map(d => d.m))].sort((a,b)=>b-a).forEach(m => {
+            mS.innerHTML += `<option value="${m}">${aylar[m]}</option>`;
+        });
         mS.disabled = false;
     };
+
     mS.onchange = () => {
-        wS.innerHTML = `<option value="">Hafta</option>`; document.getElementById("dataArea").style.display = "none";
+        wS.innerHTML = `<option value="">Hafta</option>`;
+        document.getElementById("dataArea").style.display = "none";
         if(mS.value === ""){ wS.disabled = true; return; }
-        db.filter(d => d.y == yS.value && d.m == mS.value).forEach(w => { wS.innerHTML += `<option value="${w.s}">${w.label}</option>`; });
+        
+        db.filter(d => d.y == yS.value && d.m == mS.value).forEach(w => {
+            wS.innerHTML += `<option value="${w.s}">${w.label}</option>`;
+        });
         wS.disabled = false;
     };
+
     wS.onchange = async () => {
         if(!wS.value) return;
+        const now = Date.now();
+        if(now - lastRequestTime < 1000) return;
+        lastRequestTime = now;
+
+        const cacheKey = 'week_data_' + wS.value;
+        const cachedData = localStorage.getItem(cacheKey);
+        if(cachedData) {
+            try { render(JSON.parse(cachedData)); } catch(e) {}
+        }
+
         const {data, error} = await client.from("weekly_top15").select("*").eq("week_start", wS.value).order("sira");
-        if(error) { showError("Veriler alınamadı."); return; }
-        render(data);
+        
+        if(error) {
+            showError("Veriler alınamadı, sunucu yoğun olabilir.");
+            return;
+        }
+
+        if(data && data.length > 0) {
+            localStorage.setItem(cacheKey, JSON.stringify(data));
+            render(data);
+        } else {
+            showError("Bu tarihe ait arşiv kaydı bulunamadı.");
+        }
     };
 
-    window.markRow = function(row) { document.querySelectorAll('tr').forEach(r => r.classList.remove('selected-row')); row.classList.add('selected-row'); }
+    window.markRow = function(row) {
+        document.querySelectorAll('tr').forEach(r => r.classList.remove('selected-row'));
+        row.classList.add('selected-row');
+    }
 
     function render(data){
         const sorted = [...data].sort((a,b) => (Number(a.sira) || 99) - (Number(b.sira) || 99));
-        document.getElementById("tbody").innerHTML = sorted.map((p, index) => {
-            let rankClass = "", rankIcon = `#${p.sira}`;
-            if (index === 0) { rankClass = "top-1"; rankIcon = "👑 #" + p.sira; }
-            else if (index === 1) { rankClass = "top-2"; rankIcon = "🥈 #" + p.sira; }
-            else if (index === 2) { rankClass = "top-3"; rankIcon = "🥉 #" + p.sira; }
+        if(sorted.length === 0) return;
+
+        const list = [sorted[1], sorted[0], sorted[2]];
+        let phtml = "";
+        
+        ["second", "first", "third"].forEach((cls, i) => {
+            const d = list[i];
+            if(!d){ phtml += `<div class="podium-card" style="visibility:hidden"></div>`; return; }
+            phtml += `<div class="podium-card ${cls}"><div style="font-size:1.1rem">#${d.sira}</div><div class="podium-nick">${safe(d.nick)}</div><div style="font-size:0.9rem">${d.oldurme} Öldürme</div></div>`;
+        });
+
+        document.getElementById("podium").innerHTML = phtml;
+        
+        // Tablo içi render düzenlemesi eklendi
+        document.getElementById("tbody").innerHTML = sorted.map(p => {
+            let rankHtml = `#${p.sira}`;
+            let colorClass = "sira-other";
             
+            if (p.sira == 1) { rankHtml = `👑 #${p.sira}`; colorClass = "sira-1"; }
+            else if (p.sira == 2) { rankHtml = `🥈 #${p.sira}`; colorClass = "sira-2"; }
+            else if (p.sira == 3) { rankHtml = `🥉 #${p.sira}`; colorClass = "sira-3"; }
+
             return `
-            <tr class="${rankClass}" onclick="markRow(this)">
-                <td style="font-weight:bold;">${rankIcon}</td>
+            <tr class="${p.sira <= 3 ? 'highlight' : ''}" onclick="markRow(this)">
+                <td class="${colorClass}" style="font-weight:bold;">${rankHtml}</td>
                 <td style="text-align:left; padding-left:15px;">${safe(p.nick)}</td>
                 <td>${p.oldurme || 0}</td>
-                <td>${p.headshot || 0}</td>
-                <td>${p.olumler || 0}</td>
+                <td>${p.headshot || "0 (0%)"}</td>
+                <td>${p.olumler || "0 (0%)"}</td>
                 <td>${p.mermiler || 0}</td>
-                <td>${p.hedef_tutturma || 0}</td>
+                <td>${p.hedef_tutturma || "0 (0%)"}</td>
             </tr>`;
         }).join("");
+        
         document.getElementById("dataArea").style.display = "block";
     }
+
     init();
 })();
 </script>
