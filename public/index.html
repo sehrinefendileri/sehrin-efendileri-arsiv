@@ -92,23 +92,9 @@
     const yS = document.getElementById("yS"), mS = document.getElementById("mS"), wS = document.getElementById("wS");
     const errorBox = document.getElementById("errorBox");
 
-    const showError = (msg) => {
-        errorBox.textContent = msg;
-        errorBox.style.display = "block";
-        setTimeout(() => { errorBox.style.display = "none"; }, 6000);
-    };
-
-    const safe = (s) => {
-        const div = document.createElement("div");
-        div.textContent = s || "";
-        return div.innerHTML;
-    };
-
-    const formatDate = (dateStr) => {
-        if(!dateStr) return "";
-        const [y, m, d] = dateStr.split("-");
-        return `${d}.${m}.${y}`;
-    };
+    const showError = (msg) => { errorBox.textContent = msg; errorBox.style.display = "block"; setTimeout(() => { errorBox.style.display = "none"; }, 6000); };
+    const safe = (s) => { const div = document.createElement("div"); div.textContent = s || ""; return div.innerHTML; };
+    const formatDate = (dateStr) => { if(!dateStr) return ""; const [y, m, d] = dateStr.split("-"); return `${d}.${m}.${y}`; };
 
     function renderFilters() {
         const currentYear = yS.value;
@@ -124,7 +110,6 @@
             const latest = db[0]; 
             yS.value = latest.y;
             yS.dispatchEvent(new Event('change')); 
-            
             setTimeout(() => {
                 mS.value = latest.m;
                 mS.dispatchEvent(new Event('change')); 
@@ -139,107 +124,51 @@
 
     async function init(){
         const cachedMenu = localStorage.getItem('archive_menu');
-        if(cachedMenu) {
-            try {
-                db = JSON.parse(cachedMenu);
-                renderFilters();
-                selectLatest();
-            } catch(e) { localStorage.removeItem('archive_menu'); }
-        }
-        
+        if(cachedMenu) { try { db = JSON.parse(cachedMenu); renderFilters(); selectLatest(); } catch(e) { localStorage.removeItem('archive_menu'); } }
         const {data, error} = await client.from("weekly_top15").select("week_start,week_end").order("week_end", {ascending: false});
-        
-        if(error) {
-            console.error("Supabase Error:", error);
-            if(!db.length) showError("Sunucuya ulaşılamıyor. Lütfen sayfayı yenileyin.");
-            return;
-        }
-
+        if(error) { console.error("Supabase Error:", error); if(!db.length) showError("Sunucuya ulaşılamıyor."); return; }
         const map = new Map();
         data.forEach(w => {
             const key = w.week_start + "|" + w.week_end;
-            if(!map.has(key)){
-                const d = new Date(w.week_start);
-                map.set(key, { s: w.week_start, y: d.getFullYear(), m: d.getMonth(), label: `${formatDate(w.week_start)} - ${formatDate(w.week_end)}` });
-            }
+            if(!map.has(key)){ const d = new Date(w.week_start); map.set(key, { s: w.week_start, y: d.getFullYear(), m: d.getMonth(), label: `${formatDate(w.week_start)} - ${formatDate(w.week_end)}` }); }
         });
-
         const newDb = Array.from(map.values());
         const rawCache = localStorage.getItem('archive_menu') || "[]";
-        
-        if(JSON.stringify(newDb) !== JSON.stringify(JSON.parse(rawCache))) {
-            db = newDb;
-            localStorage.setItem('archive_menu', JSON.stringify(db));
-            renderFilters();
-            if(!selectionInProgress) selectLatest();
-        }
+        if(JSON.stringify(newDb) !== JSON.stringify(JSON.parse(rawCache))) { db = newDb; localStorage.setItem('archive_menu', JSON.stringify(db)); renderFilters(); if(!selectionInProgress) selectLatest(); }
     }
 
     yS.onchange = () => {
-        mS.innerHTML = `<option value="">Ay</option>`;
-        wS.innerHTML = `<option value="">Hafta</option>`;
-        wS.disabled = true;
-        document.getElementById("dataArea").style.display = "none";
+        mS.innerHTML = `<option value="">Ay</option>`; wS.innerHTML = `<option value="">Hafta</option>`; wS.disabled = true; document.getElementById("dataArea").style.display = "none";
         if(!yS.value){ mS.disabled = true; return; }
-        
-        [...new Set(db.filter(d => d.y == yS.value).map(d => d.m))].sort((a,b)=>b-a).forEach(m => {
-            mS.innerHTML += `<option value="${m}">${aylar[m]}</option>`;
-        });
+        [...new Set(db.filter(d => d.y == yS.value).map(d => d.m))].sort((a,b)=>b-a).forEach(m => { mS.innerHTML += `<option value="${m}">${aylar[m]}</option>`; });
         mS.disabled = false;
     };
 
     mS.onchange = () => {
-        wS.innerHTML = `<option value="">Hafta</option>`;
-        document.getElementById("dataArea").style.display = "none";
+        wS.innerHTML = `<option value="">Hafta</option>`; document.getElementById("dataArea").style.display = "none";
         if(mS.value === ""){ wS.disabled = true; return; }
-        
-        db.filter(d => d.y == yS.value && d.m == mS.value).forEach(w => {
-            wS.innerHTML += `<option value="${w.s}">${w.label}</option>`;
-        });
+        db.filter(d => d.y == yS.value && d.m == mS.value).forEach(w => { wS.innerHTML += `<option value="${w.s}">${w.label}</option>`; });
         wS.disabled = false;
     };
 
     wS.onchange = async () => {
         if(!wS.value) return;
-        const now = Date.now();
-        if(now - lastRequestTime < 1000) return;
-        lastRequestTime = now;
-
+        const now = Date.now(); if(now - lastRequestTime < 1000) return; lastRequestTime = now;
         const cacheKey = 'week_data_' + wS.value;
         const cachedData = localStorage.getItem(cacheKey);
-        if(cachedData) {
-            try { render(JSON.parse(cachedData)); } catch(e) {}
-        }
-
+        if(cachedData) { try { render(JSON.parse(cachedData)); } catch(e) {} }
         const {data, error} = await client.from("weekly_top15").select("*").eq("week_start", wS.value).order("sira");
-        
-        if(error) {
-            showError("Veriler alınamadı, sunucu yoğun olabilir.");
-            return;
-        }
-
-        if(data && data.length > 0) {
-            localStorage.setItem(cacheKey, JSON.stringify(data));
-            render(data);
-        } else {
-            showError("Bu tarihe ait arşiv kaydı bulunamadı.");
-        }
+        if(error) { showError("Veriler alınamadı."); return; }
+        if(data && data.length > 0) { localStorage.setItem(cacheKey, JSON.stringify(data)); render(data); } else { showError("Kayıt bulunamadı."); }
     };
 
-    window.markRow = function(row) {
-        document.querySelectorAll('tr').forEach(r => r.classList.remove('selected-row'));
-        row.classList.add('selected-row');
-    }
+    window.markRow = function(row) { document.querySelectorAll('tr').forEach(r => r.classList.remove('selected-row')); row.classList.add('selected-row'); }
 
     function render(data){
         const sorted = [...data].sort((a,b) => (Number(a.sira) || 99) - (Number(b.sira) || 99));
         if(sorted.length === 0) return;
-
-        // Podyum için performansa göre sırala (En çok kill alan ortaya)
-        const perfSorted = [...data].sort((a,b) => Number(b.oldurme) - Number(a.oldurme));
-        const list = [perfSorted[1], perfSorted[0], perfSorted[2]];
+        const list = [sorted[1], sorted[0], sorted[2]];
         let phtml = "";
-        
         ["second", "first", "third"].forEach((cls, i) => {
             const d = list[i];
             if(!d){ phtml += `<div class="podium-card" style="visibility:hidden"></div>`; return; }
@@ -252,7 +181,6 @@
                     <div style="font-weight:bold; margin-top:5px;">${d.oldurme} Öldürme</div>
                 </div>`;
         });
-
         document.getElementById("podium").innerHTML = phtml;
         document.getElementById("tbody").innerHTML = sorted.map(p => `
             <tr class="${p.sira <= 3 ? 'highlight' : ''}" onclick="markRow(this)">
@@ -266,7 +194,6 @@
             </tr>`).join("");
         document.getElementById("dataArea").style.display = "block";
     }
-
     init();
 })();
 </script>
