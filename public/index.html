@@ -8,6 +8,7 @@
     <link rel="apple-touch-icon" href="/bg.jpg">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
+        /* --- GENEL STİLLER --- */
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #000 url('bg.jpg') no-repeat center center fixed; background-size: cover; color: #f0f0f0; overflow-x: hidden; }
         .overlay { background: rgba(0, 0, 0, 0.60); min-height: 100vh; padding: 20px 0; }
         .container { width: 95%; max-width: 1200px; margin: auto; text-align: center; }
@@ -17,12 +18,19 @@
         .filters { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
         select { padding: 10px 20px; background: black; color: #d4af37; border: 2px solid #d4af37; border-radius: 5px; cursor: pointer; font-weight: bold; }
         select:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        /* --- TOP15 VE PODYUM STİLLERİ --- */
         .podium { display: flex; justify-content: center; align-items: flex-end; gap: 10px; margin: 30px 0; }
         .podium-card { width: 150px; padding: 15px; border-radius: 10px; color: black; font-weight: bold; box-shadow: 0 5px 15px rgba(0,0,0,0.5); display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
         .podium-nick { font-size: 0.85rem; word-break: break-all; margin: 10px 0; line-height: 1.2; max-height: 3em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .first { background: gold; height: 160px; order: 2; border: 2px solid #fff; }
         .second { background: silver; height: 130px; order: 1; }
         .third { background: #cd7f32; height: 110px; order: 3; }
+        .hidden-element { visibility: hidden; }
+        .podium-rank { font-size: 1.1rem; }
+        .podium-kills { font-size: 0.9rem; }
+        
+        /* --- TABLO STİLLERİ --- */
         .table-wrap { overflow-x: auto; border-radius: 12px; background: rgba(0,0,0,0.8); border: 1px solid rgba(212, 175, 55, 0.3); }
         table { width: 100%; border-collapse: collapse; min-width: 800px; }
         th { background: gold; color: black; padding: 12px 10px; text-transform: uppercase; font-size: 0.75rem; position: sticky; top: 0; z-index: 30; }
@@ -33,13 +41,53 @@
         .selected-row td { background: rgba(212, 175, 55, 0.4) !important; color: #fff !important; border-top: 1px solid gold; border-bottom: 1px solid gold; }
         .selected-row td:nth-child(2) { background: #222 !important; }
         .highlight { background: rgba(212, 175, 55, 0.08); }
-        .error-msg { color: #ff4d4d; background: rgba(255,0,0,0.1); padding: 12px; border: 1px solid #ff4d4d; border-radius: 5px; margin: 15px 0; display: none; font-weight: bold; }
+        .td-rank { font-weight: bold; }
+        .td-nick { text-align: left; padding-left: 15px; }
         
-        /* Eklenen Yeni Sıralama Renkleri */
         .sira-1 { color: gold !important; font-size: 1.05rem; }
         .sira-2 { color: silver !important; font-size: 1.05rem; }
         .sira-3 { color: #cd7f32 !important; font-size: 1.05rem; }
         .sira-other { color: #d4af37; }
+        
+        .error-msg { color: #ff4d4d; background: rgba(255,0,0,0.1); padding: 12px; border: 1px solid #ff4d4d; border-radius: 5px; margin: 15px 0; display: none; font-weight: bold; }
+
+        /* --- ŞAMPİYONLAR SALONU VE GÖRÜNÜM KONTROLLERİ --- */
+        #dataArea, #championsArea, #champLoading, #champNoResult, #champEmpty { display: none; }
+        
+        .tabs { display: flex; justify-content: center; gap: 15px; margin-top: 25px; }
+        .tab-btn { background: rgba(0,0,0,0.6); color: #ccc; border: 1px solid rgba(212, 175, 55, 0.4); padding: 10px 25px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: all 0.3s; font-size: 1rem; }
+        .tab-btn:hover { background: rgba(212, 175, 55, 0.2); }
+        .tab-btn.active-tab { background: gold; color: black; border-color: gold; box-shadow: 0 0 15px rgba(212, 175, 55, 0.4); }
+
+        .champ-panel { margin-bottom: 20px; padding: 20px; }
+        .champ-summary { display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; }
+        .summary-box { background: rgba(0,0,0,0.8); border: 1px solid gold; padding: 15px; border-radius: 8px; width: 30%; min-width: 140px; color: #fff; font-size: 0.9rem; }
+        .summary-box span { display: block; font-size: 1.6rem; color: gold; margin-top: 5px; font-weight: bold; word-break: break-all; line-height: 1.2; }
+        
+        .champ-king-subtitle { font-size: 1rem; color: silver; display: block; margin-top: 5px; font-weight: normal; }
+        .champ-king-icon { margin-right: 5px; }
+        .champ-header-right { display: flex; align-items: center; gap: 10px; }
+        .champ-week-title { font-size: 0.8rem; color: #aaa; margin-bottom: 10px; text-transform: uppercase; font-weight: bold; }
+        
+        .champ-msg { padding: 20px; color: gold; font-weight: bold; font-size: 1.1rem; text-align: center; background: rgba(0,0,0,0.5); border-radius: 8px; border: 1px dashed gold; margin-top: 10px; }
+
+        .champ-search { width: 100%; max-width: 450px; padding: 12px 20px; border-radius: 25px; border: 1px solid gold; background: rgba(0,0,0,0.8); color: gold; font-weight: bold; margin-top: 10px; font-size: 1rem; text-align: center; outline: none; }
+        .champ-search::placeholder { color: rgba(212, 175, 55, 0.5); }
+        .champ-search:focus { box-shadow: 0 0 10px rgba(212, 175, 55, 0.3); }
+        
+        .champions-list { display: flex; flex-direction: column; gap: 12px; text-align: left; }
+        .champ-card { background: rgba(20, 20, 20, 0.9); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 8px; overflow: hidden; }
+        .champ-header { padding: 15px 20px; background: rgba(0,0,0,0.5); cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; user-select: none; }
+        .champ-header:hover { background: rgba(212, 175, 55, 0.15); }
+        .champ-name { font-size: 1.2rem; font-weight: bold; color: #fff; }
+        .champ-count { color: gold; font-weight: bold; font-size: 1.1rem; }
+        .champ-body { display: none; padding: 15px 20px; background: rgba(0,0,0,0.4); border-top: 1px solid rgba(212, 175, 55, 0.1); }
+        .champ-week-item { padding: 10px 0; border-bottom: 1px dashed #333; color: #ddd; font-size: 0.95rem; display: flex; align-items: center; }
+        .champ-week-item::before { content: "🏆"; margin-right: 10px; font-size: 0.9rem; }
+        .champ-week-item:last-child { border-bottom: none; padding-bottom: 0; }
+        .arrow-icon { transition: transform 0.3s; color: gold; font-size: 0.9rem; }
+        .champ-card.open .arrow-icon { transform: rotate(180deg); }
+        .champ-card.open .champ-body { display: block; }
 
         @media (max-width: 768px) {
             h1 { font-size: 1.6rem; letter-spacing: 2px; }
@@ -52,6 +100,14 @@
             .third { height: 100px; }
             td, th { padding: 8px 5px; font-size: 0.75rem; }
             th:nth-child(2), td:nth-child(2) { min-width: 100px; }
+            
+            .summary-box { width: 42%; padding: 12px 5px; }
+            .summary-box span { font-size: 1.2rem; }
+            .tab-btn { font-size: 0.9rem; padding: 8px 15px; }
+            .champ-name { font-size: 1rem; }
+            .champ-count { font-size: 0.9rem; }
+            .champ-header { padding: 12px 15px; }
+            .champ-body { padding: 12px 15px; }
         }
     </style>
 </head>
@@ -67,8 +123,14 @@
                 <select id="mS" disabled><option value="">Ay</option></select>
                 <select id="wS" disabled><option value="">Hafta</option></select>
             </div>
+            
+            <div class="tabs">
+                <button id="tabTop15" class="tab-btn active-tab">📋 Top15 Arşiv</button>
+                <button id="tabChampions" class="tab-btn">🏆 Şampiyonlar</button>
+            </div>
         </div>
-        <div id="dataArea" style="display:none;">
+        
+        <div id="dataArea">
             <div id="podium" class="podium"></div>
             <div class="table-wrap">
                 <table>
@@ -87,11 +149,32 @@
                 </table>
             </div>
         </div>
+        
+        <div id="championsArea">
+            <div class="glass-panel champ-panel">
+                <div class="champ-summary">
+                    <div class="summary-box">👑 Sunucu Kralı<br><span id="sumKing">-</span></div>
+                    <div class="summary-box">🏆 Toplam Hafta<br><span id="sumWeeks">-</span></div>
+                    <div class="summary-box">👥 Farklı Şampiyon<br><span id="sumPlayers">-</span></div>
+                </div>
+                <input type="text" id="champSearch" class="champ-search" placeholder="Oyuncu Ara...">
+            </div>
+            
+            <div id="champLoading" class="champ-msg">Şampiyonlar yükleniyor...</div>
+            <div id="champNoResult" class="champ-msg">Aramanızla eşleşen şampiyon bulunamadı.</div>
+            <div id="champEmpty" class="champ-msg">Henüz şampiyon verisi bulunmuyor.</div>
+            
+            <div id="championsList" class="champions-list"></div>
+        </div>
+
     </div>
 </div>
 
 <script>
 (function(){
+    // ====================================================================
+    // --- MEVCUT TOP15 SİSTEMİ ---
+    // ====================================================================
     const SUPABASE_URL = "https://cyeklyjeszniowopawpc.supabase.co";
     const SUPABASE_KEY = "sb_publishable_RUhk34F8aZiNcgIDIZAwCA_8ZATrGh0";
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -250,15 +333,16 @@
         const list = [sorted[1], sorted[0], sorted[2]];
         let phtml = "";
         
+        // Inline style'lar yerine CSS sınıfları eklendi (.hidden-element, .podium-rank, .podium-kills)
         ["second", "first", "third"].forEach((cls, i) => {
             const d = list[i];
-            if(!d){ phtml += `<div class="podium-card" style="visibility:hidden"></div>`; return; }
-            phtml += `<div class="podium-card ${cls}"><div style="font-size:1.1rem">#${d.sira}</div><div class="podium-nick">${safe(d.nick)}</div><div style="font-size:0.9rem">${d.oldurme} Öldürme</div></div>`;
+            if(!d){ phtml += `<div class="podium-card hidden-element"></div>`; return; }
+            phtml += `<div class="podium-card ${cls}"><div class="podium-rank">#${d.sira}</div><div class="podium-nick">${safe(d.nick)}</div><div class="podium-kills">${d.oldurme} Öldürme</div></div>`;
         });
 
         document.getElementById("podium").innerHTML = phtml;
         
-        // Tablo içi render düzenlemesi eklendi
+        // Tablo hücreleri için inline stiller yerine CSS sınıfları kullanıldı (.td-rank, .td-nick)
         document.getElementById("tbody").innerHTML = sorted.map(p => {
             let rankHtml = `#${p.sira}`;
             let colorClass = "sira-other";
@@ -269,8 +353,8 @@
 
             return `
             <tr class="${p.sira <= 3 ? 'highlight' : ''}" onclick="markRow(this)">
-                <td class="${colorClass}" style="font-weight:bold;">${rankHtml}</td>
-                <td style="text-align:left; padding-left:15px;">${safe(p.nick)}</td>
+                <td class="${colorClass} td-rank">${rankHtml}</td>
+                <td class="td-nick">${safe(p.nick)}</td>
                 <td>${p.oldurme || 0}</td>
                 <td>${p.headshot || "0 (0%)"}</td>
                 <td>${p.olumler || "0 (0%)"}</td>
@@ -279,10 +363,246 @@
             </tr>`;
         }).join("");
         
-        document.getElementById("dataArea").style.display = "block";
+        if(!document.getElementById("tabChampions").classList.contains("active-tab")) {
+            document.getElementById("dataArea").style.display = "block";
+        }
     }
 
     init();
+
+    // ====================================================================
+    // --- ŞAMPİYONLAR SALONU ---
+    // ====================================================================
+    
+    const tabTop15 = document.getElementById("tabTop15");
+    const tabChampions = document.getElementById("tabChampions");
+    const championsArea = document.getElementById("championsArea");
+    const dataArea = document.getElementById("dataArea");
+    const champSearch = document.getElementById("champSearch");
+    const championsListElement = document.getElementById("championsList");
+    const champLoading = document.getElementById("champLoading");
+    const champNoResult = document.getElementById("champNoResult");
+    const champEmpty = document.getElementById("champEmpty");
+    const filtersArea = document.querySelector(".filters");
+    
+    let rawChampionsData = [];
+
+    // Görünüm Değiştiriciler
+    tabTop15.addEventListener("click", () => {
+        tabTop15.classList.add("active-tab");
+        tabChampions.classList.remove("active-tab");
+        
+        championsArea.style.display = "none";
+        filtersArea.style.display = "flex";
+        
+        champSearch.value = "";
+        champNoResult.style.display = "none";
+        champEmpty.style.display = "none";
+        
+        if (wS.value && document.getElementById("tbody").innerHTML.trim() !== "") {
+            dataArea.style.display = "block";
+        }
+    });
+
+    tabChampions.addEventListener("click", () => {
+        tabChampions.classList.add("active-tab");
+        tabTop15.classList.remove("active-tab");
+        
+        dataArea.style.display = "none";
+        filtersArea.style.display = "none";
+        championsArea.style.display = "block";
+        
+        champSearch.value = "";
+        champNoResult.style.display = "none";
+        
+        loadChampions();
+    });
+
+    // Stale-while-revalidate Cache Mantığı
+    async function loadChampions() {
+        const cacheKey = 'champions_cache_v2';
+        const cached = localStorage.getItem(cacheKey);
+        let hasCache = false;
+        
+        // 1. AŞAMA: CACHE VARSA ANINDA GÖSTER
+        if(cached) {
+            try {
+                const parsedData = JSON.parse(cached);
+                if (parsedData && parsedData.data && parsedData.data.length > 0) {
+                    rawChampionsData = parsedData.data;
+                    renderChampionsList(); 
+                    hasCache = true;
+                }
+            } catch(e) {
+                localStorage.removeItem(cacheKey);
+            }
+        }
+
+        // Cache yoksa yükleniyor ekranını aç
+        if (!hasCache) {
+            champLoading.style.display = "block";
+            championsListElement.innerHTML = "";
+            championsListElement.style.display = "none";
+            champNoResult.style.display = "none";
+            champEmpty.style.display = "none";
+        }
+
+        // 2. AŞAMA: ARKA PLANDA SUPABASE'DEN GÜNCEL VERİ ÇEK (Revalidate)
+        const { data, error } = await client
+            .from("weekly_top15")
+            .select("nick, week_start, week_end")
+            .eq("sira", 1);
+            
+        if(error) {
+            if (!hasCache) {
+                champLoading.style.display = "none";
+                showError("Şampiyonlar yüklenirken sunucu ile iletişim kurulamadı.");
+            }
+            return;
+        }
+
+        // 3. AŞAMA: VERİ KONTROLÜ VE EKRANI SESSİZCE YENİLEME
+        if(data && data.length > 0) {
+            champEmpty.style.display = "none";
+            const isDataChanged = JSON.stringify(data) !== JSON.stringify(rawChampionsData);
+            
+            // Veri değiştiyse veya daha önce hiç cache yoksa UI'ı güncelle
+            if (isDataChanged || !hasCache) {
+                rawChampionsData = data;
+                localStorage.setItem(cacheKey, JSON.stringify({ data: rawChampionsData, timestamp: Date.now() }));
+                renderChampionsList();
+            }
+        } else {
+            // Supabase boş dönerse tüm listeleri kapat ve mesaj göster
+            champLoading.style.display = "none";
+            championsListElement.style.display = "none";
+            champEmpty.style.display = "block";
+            localStorage.removeItem(cacheKey);
+            rawChampionsData = [];
+        }
+    }
+
+    // Şampiyon Verilerini İşleme ve Ekrana Basma
+    function renderChampionsList() {
+        if(!rawChampionsData || rawChampionsData.length === 0) {
+            champLoading.style.display = "none";
+            return;
+        }
+
+        const groupedPlayers = {};
+        let totalChampionshipWeeks = 0;
+
+        rawChampionsData.forEach(row => {
+            const nick = row.nick || "Bilinmeyen Şampiyon";
+            if(!groupedPlayers[nick]) {
+                groupedPlayers[nick] = { nick: nick, count: 0, weeks: [], latestDate: "" };
+            }
+            groupedPlayers[nick].count += 1;
+            groupedPlayers[nick].weeks.push({
+                start: row.week_start,
+                end: row.week_end,
+                label: `${formatDate(row.week_start)} - ${formatDate(row.week_end)}`
+            });
+            totalChampionshipWeeks++;
+            
+            if(!groupedPlayers[nick].latestDate || row.week_start > groupedPlayers[nick].latestDate) {
+                groupedPlayers[nick].latestDate = row.week_start;
+            }
+        });
+
+        const sortedChampions = Object.values(groupedPlayers).sort((a, b) => {
+            if(b.count !== a.count) return b.count - a.count;
+            return b.latestDate.localeCompare(a.latestDate); 
+        });
+
+        // Özet İstatistikleri Güncelle
+        document.getElementById("sumWeeks").textContent = totalChampionshipWeeks;
+        document.getElementById("sumPlayers").textContent = sortedChampions.length;
+        
+        if(sortedChampions.length > 0) {
+            const king = sortedChampions[0];
+            document.getElementById("sumKing").innerHTML = `${safe(king.nick)}<br><span class="champ-king-subtitle">🏆 ${king.count} Şampiyonluk</span>`;
+        } else {
+            document.getElementById("sumKing").textContent = "-";
+        }
+
+        // Accordion Kartları Oluştur
+        championsListElement.innerHTML = sortedChampions.map((champ, index) => {
+            const sortedWeeks = champ.weeks.sort((a, b) => b.start.localeCompare(a.start));
+            const kingIcon = index === 0 ? '<span class="champ-king-icon">👑</span>' : '';
+            
+            return `
+            <div class="champ-card">
+                <div class="champ-header">
+                    <div class="champ-name">${kingIcon}<span class="champ-real-name">${safe(champ.nick)}</span></div>
+                    <div class="champ-header-right">
+                        <span class="champ-count">🏆 ${champ.count} Şampiyonluk</span>
+                        <span class="arrow-icon">▼</span>
+                    </div>
+                </div>
+                <div class="champ-body">
+                    <div class="champ-week-title">▼ Şampiyon Olduğu Haftalar</div>
+                    ${sortedWeeks.map(w => `<div class="champ-week-item">${w.label}</div>`).join("")}
+                </div>
+            </div>`;
+        }).join("");
+
+        // Yükleniyor'u gizle, listeyi göster
+        champLoading.style.display = "none";
+        champEmpty.style.display = "none";
+        championsListElement.style.display = "flex";
+        
+        champSearch.value = "";
+        champNoResult.style.display = "none";
+    }
+
+    // Accordion Açma/Kapama İşlemi
+    championsListElement.addEventListener('click', function(e) {
+        const header = e.target.closest('.champ-header');
+        if (header) {
+            header.parentElement.classList.toggle('open');
+        }
+    });
+
+    // Türkçe Karakter Normalizasyon Fonksiyonu
+    const normalizeTurkish = (str) => {
+        return str.replace(/İ/g, 'i')
+                  .replace(/I/g, 'ı')
+                  .toLowerCase()
+                  .replace(/ç/g, 'c')
+                  .replace(/ğ/g, 'g')
+                  .replace(/ö/g, 'o')
+                  .replace(/ş/g, 's')
+                  .replace(/ü/g, 'u')
+                  .replace(/ı/g, 'i');
+    };
+
+    // Oyuncu Arama Filtresi
+    champSearch.addEventListener("input", (e) => {
+        const searchValue = normalizeTurkish(e.target.value);
+        const championCards = document.querySelectorAll(".champ-card");
+        let visibleCount = 0;
+        
+        championCards.forEach(card => {
+            card.classList.remove('open');
+            const playerNameNode = card.querySelector(".champ-real-name");
+            if (playerNameNode) {
+                const playerName = normalizeTurkish(playerNameNode.textContent);
+                if(playerName.includes(searchValue)) {
+                    card.style.display = "block";
+                    visibleCount++;
+                } else {
+                    card.style.display = "none";
+                }
+            }
+        });
+
+        if (visibleCount === 0 && championCards.length > 0) {
+            champNoResult.style.display = "block";
+        } else {
+            champNoResult.style.display = "none";
+        }
+    });
 })();
 </script>
 </body>
