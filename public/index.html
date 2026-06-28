@@ -61,8 +61,18 @@
 
         .champ-panel { margin-bottom: 20px; padding: 20px; }
         .champ-summary { display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; }
-        .summary-box { background: rgba(0,0,0,0.8); border: 1px solid gold; padding: 15px; border-radius: 8px; width: 30%; min-width: 140px; color: #fff; font-size: 0.9rem; }
-        .summary-box span { display: block; font-size: 1.6rem; color: gold; margin-top: 5px; font-weight: bold; word-break: break-all; line-height: 1.2; }
+        
+        /* Özet Kutuları Temel Ortak Stiller */
+        .summary-box { background: rgba(0,0,0,0.8); border: 1px solid gold; border-radius: 8px; color: #fff; display: flex; flex-direction: column; justify-content: center; }
+        .summary-box > span { display: block; color: gold; font-weight: bold; word-break: break-all; line-height: 1.2; }
+        
+        /* YENİ GÖRSEL HİYERARŞİ: Kral Kutusu (Daha Büyük ve Belirgin) */
+        .king-box { width: 46%; padding: 25px 20px; font-size: 1.1rem; box-shadow: 0 0 15px rgba(212, 175, 55, 0.2); }
+        .king-box > span { font-size: 2.2rem; margin-top: 10px; }
+        
+        /* YENİ GÖRSEL HİYERARŞİ: İstatistik Kutuları (Daha Küçük ve Destekleyici) */
+        .stat-box { width: 21%; min-width: 120px; padding: 15px 10px; font-size: 0.85rem; }
+        .stat-box > span { font-size: 1.3rem; margin-top: 5px; }
         
         .champ-king-subtitle { font-size: 1rem; color: silver; display: block; margin-top: 5px; font-weight: normal; }
         .champ-king-icon { margin-right: 5px; }
@@ -101,8 +111,12 @@
             td, th { padding: 8px 5px; font-size: 0.75rem; }
             th:nth-child(2), td:nth-child(2) { min-width: 100px; }
             
-            .summary-box { width: 42%; padding: 12px 5px; }
-            .summary-box span { font-size: 1.2rem; }
+            /* Şampiyonlar Responsive - Yeni Hiyerarşi Mobil Görünümü */
+            .king-box { width: 100%; padding: 20px 10px; font-size: 1rem; }
+            .king-box > span { font-size: 1.8rem; }
+            .stat-box { width: 46%; padding: 12px 5px; min-width: auto; }
+            .stat-box > span { font-size: 1.1rem; }
+            
             .tab-btn { font-size: 0.9rem; padding: 8px 15px; }
             .champ-name { font-size: 1rem; }
             .champ-count { font-size: 0.9rem; }
@@ -116,7 +130,7 @@
     <div class="container">
         <div class="glass-panel">
             <h1>ŞEHRİN EFENDİLERİ ARŞİV</h1>
-            <p class="archive-desc">Bu sayfada geçmiş haftalara ait Top15 sıralamalarını inceleyebilir.<br>Şampiyonlar sekmesinden tüm haftaların birincilerini ve şampiyonluk sayılarını görüntüleyebilirsiniz.</p>
+            <p class="archive-desc">Bu sayfada geçmiş haftalara ait Top15 listeleri yer alır.<br>Aşağıdan tarih aralığı seçerek verilere ulaşabilirsiniz.</p>
             <div id="errorBox" class="error-msg"></div>
             <div class="filters">
                 <select id="yS"><option value="">Yıl</option></select>
@@ -153,9 +167,9 @@
         <div id="championsArea">
             <div class="glass-panel champ-panel">
                 <div class="champ-summary">
-                    <div class="summary-box">👑 Sunucu Kralı<br><span id="sumKing">-</span></div>
-                    <div class="summary-box">🏆 Toplam Hafta<br><span id="sumWeeks">-</span></div>
-                    <div class="summary-box">👥 Farklı Şampiyon<br><span id="sumPlayers">-</span></div>
+                    <div class="summary-box king-box">👑 Sunucu Kralı<br><span id="sumKing">-</span></div>
+                    <div class="summary-box stat-box">🏆 Toplam Hafta<br><span id="sumWeeks">-</span></div>
+                    <div class="summary-box stat-box">👥 Farklı Şampiyon<br><span id="sumPlayers">-</span></div>
                 </div>
                 <input type="text" id="champSearch" class="champ-search" placeholder="Oyuncu Ara...">
             </div>
@@ -333,7 +347,6 @@
         const list = [sorted[1], sorted[0], sorted[2]];
         let phtml = "";
         
-        // Inline style'lar yerine CSS sınıfları eklendi (.hidden-element, .podium-rank, .podium-kills)
         ["second", "first", "third"].forEach((cls, i) => {
             const d = list[i];
             if(!d){ phtml += `<div class="podium-card hidden-element"></div>`; return; }
@@ -342,7 +355,6 @@
 
         document.getElementById("podium").innerHTML = phtml;
         
-        // Tablo hücreleri için inline stiller yerine CSS sınıfları kullanıldı (.td-rank, .td-nick)
         document.getElementById("tbody").innerHTML = sorted.map(p => {
             let rankHtml = `#${p.sira}`;
             let colorClass = "sira-other";
