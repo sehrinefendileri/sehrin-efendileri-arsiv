@@ -109,29 +109,116 @@
 
         /* --- ŞAMPİYONLAR SALONU VE GÖRÜNÜM KONTROLLERİ --- */
         #dataArea, #championsArea, #champLoading, #champNoResult, #champEmpty { display: none; }
-        
         .champ-panel { margin-bottom: 20px; padding: 20px; }
-        .champ-summary { display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; }
         
-        .summary-box { background: rgba(0,0,0,0.8); border: 1px solid gold; border-radius: 8px; color: #fff; display: flex; flex-direction: column; justify-content: center; }
-        .summary-box > span { display: block; color: gold; font-weight: bold; word-break: break-all; line-height: 1.2; }
+        /* --- YENİ ŞAMPİYONLAR DASHBOARD ÖZET ALANI --- */
+        .champ-dashboard { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            gap: 20px; 
+            margin-bottom: 20px; 
+        }
         
-        .king-box { width: 62%; padding: 35px 20px; font-size: 1.4rem; box-shadow: 0 0 25px rgba(212, 175, 55, 0.3); }
-        .king-box > span { font-size: 2.8rem; margin-top: 15px; }
+        .dashboard-king-card { 
+            background: rgba(0, 0, 0, 0.7); 
+            border: 1px solid rgba(212, 175, 55, 0.5); 
+            border-radius: 12px; 
+            padding: 25px; 
+            text-align: center; 
+            width: 100%; 
+            max-width: 600px; 
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.15); 
+            display: flex; 
+            flex-direction: column; 
+            gap: 5px; 
+        }
+        .king-label { 
+            font-size: 0.85rem; 
+            color: rgba(212, 175, 55, 0.8); 
+            text-transform: uppercase; 
+            letter-spacing: 2px; 
+            font-weight: bold; 
+        }
+        .king-content { 
+            color: #fff; 
+            font-size: 2.2rem; 
+            font-weight: bold; 
+            word-break: break-all; 
+            line-height: 1.2; 
+            margin-top: 5px;
+        }
+        .champ-king-subtitle { 
+            font-size: 1.1rem; 
+            color: #d4af37; 
+            font-weight: normal; 
+            margin-top: 8px; 
+            display: block; 
+        }
         
-        .stat-box { width: 15%; min-width: 90px; padding: 10px 5px; font-size: 0.75rem; }
-        .stat-box > span { font-size: 1rem; margin-top: 5px; }
-        
-        .champ-king-subtitle { font-size: 1.2rem; color: silver; display: block; margin-top: 10px; font-weight: normal; }
-        .champ-king-icon { margin-right: 5px; }
-        .champ-header-right { display: flex; align-items: center; gap: 10px; }
-        .champ-week-title { font-size: 0.8rem; color: #aaa; margin-bottom: 10px; text-transform: uppercase; font-weight: bold; }
+        .dashboard-stats-row { 
+            display: flex; 
+            justify-content: center; 
+            gap: 20px; 
+            width: 100%; 
+            max-width: 600px; 
+        }
+        .dashboard-stat-card { 
+            background: rgba(0, 0, 0, 0.7); 
+            border: 1px solid rgba(212, 175, 55, 0.3); 
+            border-radius: 12px; 
+            flex: 1; 
+            padding: 20px 10px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); 
+            transition: transform 0.2s; 
+        }
+        .dashboard-stat-card:hover { 
+            transform: translateY(-2px); 
+            border-color: rgba(212, 175, 55, 0.5); 
+        }
+        .stat-number { 
+            font-size: 2.2rem; 
+            color: #fff; 
+            font-weight: bold; 
+            margin-bottom: 5px; 
+            line-height: 1; 
+        }
+        .stat-label { 
+            font-size: 0.8rem; 
+            color: rgba(212, 175, 55, 0.8); 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+            font-weight: bold; 
+        }
+
+        .dashboard-search-row { 
+            width: 100%; 
+            max-width: 600px; 
+            margin-top: 5px; 
+        }
+        .champ-search { 
+            width: 100%; 
+            box-sizing: border-box; 
+            padding: 14px 25px; 
+            border-radius: 30px; 
+            border: 1px solid rgba(212, 175, 55, 0.5); 
+            background: rgba(0, 0, 0, 0.8); 
+            color: #d4af37; 
+            font-weight: bold; 
+            font-size: 1.05rem; 
+            text-align: center; 
+            outline: none; 
+            transition: all 0.3s ease; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
+        }
+        .champ-search::placeholder { color: rgba(212, 175, 55, 0.4); font-weight: normal; }
+        .champ-search:focus { border-color: #d4af37; box-shadow: 0 0 15px rgba(212, 175, 55, 0.5); }
         
         .champ-msg { padding: 20px; color: gold; font-weight: bold; font-size: 1.1rem; text-align: center; background: rgba(0,0,0,0.5); border-radius: 8px; border: 1px dashed gold; margin-top: 10px; }
-
-        .champ-search { width: 100%; max-width: 450px; padding: 12px 20px; border-radius: 25px; border: 1px solid gold; background: rgba(0,0,0,0.8); color: gold; font-weight: bold; margin-top: 10px; font-size: 1rem; text-align: center; outline: none; }
-        .champ-search::placeholder { color: rgba(212, 175, 55, 0.5); }
-        .champ-search:focus { box-shadow: 0 0 10px rgba(212, 175, 55, 0.3); }
         
         .champions-list { display: flex; flex-direction: column; gap: 12px; text-align: left; }
         .champ-card { background: rgba(20, 20, 20, 0.9); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 8px; overflow: hidden; }
@@ -146,6 +233,7 @@
         .arrow-icon { transition: transform 0.3s; color: gold; font-size: 0.9rem; }
         .champ-card.open .arrow-icon { transform: rotate(180deg); }
         .champ-card.open .champ-body { display: block; }
+        .champ-king-icon { margin-right: 5px; }
 
         @media (max-width: 768px) {
             h1 { font-size: 1.6rem; letter-spacing: 2px; }
@@ -164,12 +252,11 @@
             .tab-btn { width: 90%; height: 65px; font-size: 19px; }
             .premium-divider { margin: 15px auto; }
             
-            /* Şampiyonlar Hiyerarşi Mobil Görünümü */
-            .king-box { width: 100%; padding: 30px 10px; font-size: 1.2rem; }
-            .king-box > span { font-size: 2.2rem; }
-            .champ-king-subtitle { font-size: 1rem; margin-top: 5px; }
-            .stat-box { width: 46%; padding: 8px 5px; min-width: auto; font-size: 0.75rem; }
-            .stat-box > span { font-size: 0.95rem; }
+            /* Yeni Dashboard Mobil Görünümü */
+            .dashboard-stats-row { flex-direction: column; gap: 15px; }
+            .king-content { font-size: 1.8rem; }
+            .dashboard-king-card { padding: 20px 15px; }
+            .champ-search { font-size: 1rem; padding: 12px 20px; }
             
             .champ-name { font-size: 1rem; }
             .champ-count { font-size: 0.9rem; }
@@ -222,12 +309,29 @@
         
         <div id="championsArea">
             <div class="glass-panel champ-panel">
-                <div class="champ-summary">
-                    <div class="summary-box king-box">👑 Sunucu Kralı<br><span id="sumKing">-</span></div>
-                    <div class="summary-box stat-box">🏆 Toplam Hafta<br><span id="sumWeeks">-</span></div>
-                    <div class="summary-box stat-box">👥 Farklı Şampiyon<br><span id="sumPlayers">-</span></div>
+                
+                <div class="champ-dashboard">
+                    <div class="dashboard-king-card">
+                        <div class="king-label">👑 Sunucu Kralı</div>
+                        <div id="sumKing" class="king-content">-</div>
+                    </div>
+
+                    <div class="dashboard-stats-row">
+                        <div class="dashboard-stat-card">
+                            <div id="sumWeeks" class="stat-number">-</div>
+                            <div class="stat-label">Toplam Hafta</div>
+                        </div>
+                        <div class="dashboard-stat-card">
+                            <div id="sumPlayers" class="stat-number">-</div>
+                            <div class="stat-label">Şampiyon Oyuncu</div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-search-row">
+                        <input type="text" id="champSearch" class="champ-search" placeholder="Şampiyon oyuncu ara...">
+                    </div>
                 </div>
-                <input type="text" id="champSearch" class="champ-search" placeholder="Oyuncu Ara...">
+
             </div>
             
             <div id="champLoading" class="champ-msg">Şampiyonlar yükleniyor...</div>
@@ -589,7 +693,8 @@
         
         if(sortedChampions.length > 0) {
             const king = sortedChampions[0];
-            document.getElementById("sumKing").innerHTML = `${safe(king.nick)}<br><span class="champ-king-subtitle">🏆 ${king.count} Şampiyonluk</span>`;
+            /* SADECE METİN DEĞİŞİKLİĞİ: 'Şampiyonluk' YERİNE 'Kez Şampiyon' EKLENDİ */
+            document.getElementById("sumKing").innerHTML = `${safe(king.nick)}<br><span class="champ-king-subtitle">🏆 ${king.count} Kez Şampiyon</span>`;
         } else {
             document.getElementById("sumKing").textContent = "-";
         }
