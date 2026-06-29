@@ -19,6 +19,62 @@
         select { padding: 10px 20px; background: black; color: #d4af37; border: 2px solid #d4af37; border-radius: 5px; cursor: pointer; font-weight: bold; }
         select:disabled { opacity: 0.5; cursor: not-allowed; }
         
+        /* --- YENİ PREMIUM SEKMELER (TABS) STİLLERİ --- */
+        .tabs { 
+            display: flex; 
+            justify-content: center; 
+            gap: 25px; 
+            margin-top: 15px; 
+            margin-bottom: 20px; 
+        }
+        
+        .tab-btn { 
+            width: 300px; 
+            height: 70px; 
+            background: #000; 
+            color: #d4af37; 
+            border: 2px solid #d4af37; 
+            border-radius: 12px; 
+            cursor: pointer; 
+            font-weight: 700; 
+            font-size: 21px; 
+            transition: all 0.25s ease; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 12px; 
+            outline: none;
+        }
+        
+        .tab-btn:hover { 
+            background: rgba(212, 175, 55, 0.1); 
+            transform: scale(1.03); 
+        }
+        
+        .tab-btn.active-tab { 
+            background: linear-gradient(135deg, #d4af37 0%, #f3e5ab 50%, #d4af37 100%); 
+            color: #000; 
+            border: 2px solid transparent; 
+            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.8), 0 0 18px rgba(212, 175, 55, 0.45); 
+        }
+        
+        .tab-btn.active-tab:hover { 
+            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.9), 0 0 25px rgba(212, 175, 55, 0.65); 
+            transform: scale(1.03); 
+        }
+        
+        .tab-icon { font-size: 1.1em; }
+        
+        /* Premium Ayırıcı Çizgi */
+        .premium-divider {
+            width: 220px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #d4af37, #fff, #d4af37, transparent);
+            margin: 25px auto;
+            opacity: 0.8;
+            border-radius: 50%;
+        }
+        
         /* --- TOP15 VE PODYUM STİLLERİ --- */
         .podium { display: flex; justify-content: center; align-items: flex-end; gap: 10px; margin: 30px 0; }
         .podium-card { width: 150px; padding: 15px; border-radius: 10px; color: black; font-weight: bold; box-shadow: 0 5px 15px rgba(0,0,0,0.5); display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
@@ -54,27 +110,19 @@
         /* --- ŞAMPİYONLAR SALONU VE GÖRÜNÜM KONTROLLERİ --- */
         #dataArea, #championsArea, #champLoading, #champNoResult, #champEmpty { display: none; }
         
-        .tabs { display: flex; justify-content: center; gap: 15px; margin-top: 25px; }
-        .tab-btn { background: rgba(0,0,0,0.6); color: #ccc; border: 1px solid rgba(212, 175, 55, 0.4); padding: 10px 25px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: all 0.3s; font-size: 1rem; }
-        .tab-btn:hover { background: rgba(212, 175, 55, 0.2); }
-        .tab-btn.active-tab { background: gold; color: black; border-color: gold; box-shadow: 0 0 15px rgba(212, 175, 55, 0.4); }
-
         .champ-panel { margin-bottom: 20px; padding: 20px; }
-        .champ-summary { display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; }
+        .champ-summary { display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; }
         
-        /* Özet Kutuları Temel Ortak Stiller */
         .summary-box { background: rgba(0,0,0,0.8); border: 1px solid gold; border-radius: 8px; color: #fff; display: flex; flex-direction: column; justify-content: center; }
         .summary-box > span { display: block; color: gold; font-weight: bold; word-break: break-all; line-height: 1.2; }
         
-        /* YENİ GÖRSEL HİYERARŞİ: Kral Kutusu (Daha Büyük ve Belirgin) */
-        .king-box { width: 46%; padding: 25px 20px; font-size: 1.1rem; box-shadow: 0 0 15px rgba(212, 175, 55, 0.2); }
-        .king-box > span { font-size: 2.2rem; margin-top: 10px; }
+        .king-box { width: 62%; padding: 35px 20px; font-size: 1.4rem; box-shadow: 0 0 25px rgba(212, 175, 55, 0.3); }
+        .king-box > span { font-size: 2.8rem; margin-top: 15px; }
         
-        /* YENİ GÖRSEL HİYERARŞİ: İstatistik Kutuları (Daha Küçük ve Destekleyici) */
-        .stat-box { width: 21%; min-width: 120px; padding: 15px 10px; font-size: 0.85rem; }
-        .stat-box > span { font-size: 1.3rem; margin-top: 5px; }
+        .stat-box { width: 15%; min-width: 90px; padding: 10px 5px; font-size: 0.75rem; }
+        .stat-box > span { font-size: 1rem; margin-top: 5px; }
         
-        .champ-king-subtitle { font-size: 1rem; color: silver; display: block; margin-top: 5px; font-weight: normal; }
+        .champ-king-subtitle { font-size: 1.2rem; color: silver; display: block; margin-top: 10px; font-weight: normal; }
         .champ-king-icon { margin-right: 5px; }
         .champ-header-right { display: flex; align-items: center; gap: 10px; }
         .champ-week-title { font-size: 0.8rem; color: #aaa; margin-bottom: 10px; text-transform: uppercase; font-weight: bold; }
@@ -111,13 +159,18 @@
             td, th { padding: 8px 5px; font-size: 0.75rem; }
             th:nth-child(2), td:nth-child(2) { min-width: 100px; }
             
-            /* Şampiyonlar Responsive - Yeni Hiyerarşi Mobil Görünümü */
-            .king-box { width: 100%; padding: 20px 10px; font-size: 1rem; }
-            .king-box > span { font-size: 1.8rem; }
-            .stat-box { width: 46%; padding: 12px 5px; min-width: auto; }
-            .stat-box > span { font-size: 1.1rem; }
+            /* Yeni Sekme Mobil Görünümü */
+            .tabs { flex-direction: column; align-items: center; gap: 12px; margin-bottom: 15px; }
+            .tab-btn { width: 90%; height: 65px; font-size: 19px; }
+            .premium-divider { margin: 15px auto; }
             
-            .tab-btn { font-size: 0.9rem; padding: 8px 15px; }
+            /* Şampiyonlar Hiyerarşi Mobil Görünümü */
+            .king-box { width: 100%; padding: 30px 10px; font-size: 1.2rem; }
+            .king-box > span { font-size: 2.2rem; }
+            .champ-king-subtitle { font-size: 1rem; margin-top: 5px; }
+            .stat-box { width: 46%; padding: 8px 5px; min-width: auto; font-size: 0.75rem; }
+            .stat-box > span { font-size: 0.95rem; }
+            
             .champ-name { font-size: 1rem; }
             .champ-count { font-size: 0.9rem; }
             .champ-header { padding: 12px 15px; }
@@ -132,15 +185,18 @@
             <h1>ŞEHRİN EFENDİLERİ ARŞİV</h1>
             <p class="archive-desc">Bu sayfada geçmiş haftalara ait Top15 listeleri yer alır.<br>Aşağıdan tarih aralığı seçerek verilere ulaşabilirsiniz.</p>
             <div id="errorBox" class="error-msg"></div>
+            
+            <div class="tabs">
+                <button id="tabTop15" class="tab-btn active-tab"><span class="tab-icon">📋</span> TOP15 ARŞİV</button>
+                <button id="tabChampions" class="tab-btn"><span class="tab-icon">🏆</span> ŞAMPİYONLAR</button>
+            </div>
+            
+            <div class="premium-divider"></div>
+            
             <div class="filters">
                 <select id="yS"><option value="">Yıl</option></select>
                 <select id="mS" disabled><option value="">Ay</option></select>
                 <select id="wS" disabled><option value="">Hafta</option></select>
-            </div>
-            
-            <div class="tabs">
-                <button id="tabTop15" class="tab-btn active-tab">📋 Top15 Arşiv</button>
-                <button id="tabChampions" class="tab-btn">🏆 Şampiyonlar</button>
             </div>
         </div>
         
