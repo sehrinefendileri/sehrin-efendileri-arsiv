@@ -232,9 +232,16 @@ function getWeekRange() {
 
     sunday.setDate(monday.getDate() + 6);
 
+    const formatLocal = (date) => {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const dStr = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${dStr}`;
+    };
+
     return {
-        start: monday.toISOString().split('T')[0],
-        end: sunday.toISOString().split('T')[0]
+        start: formatLocal(monday),
+        end: formatLocal(sunday)
     };
 }
 
