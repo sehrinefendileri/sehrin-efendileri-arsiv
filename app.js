@@ -1,0 +1,14 @@
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import indexRoutes from './routes/indexRoutes.js';
+import statusRoutes from './routes/statusRoutes.js';
+import { authMiddleware } from './middleware/authMiddleware.js';
+const app = express();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+app.set('trust proxy',1);
+app.use(authMiddleware);
+app.use(express.static(path.join(__dirname,'public')));
+app.use('/',indexRoutes);
+app.use('/status',statusRoutes);
+export default app;
