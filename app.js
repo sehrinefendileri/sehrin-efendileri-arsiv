@@ -1,3 +1,4 @@
+import archiveRoutes from './routes/archiveRoutes.js';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -8,6 +9,7 @@ const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 app.set('trust proxy',1);
 app.use(authMiddleware);
+app.use('/api/archive', archiveRoutes);
 app.use(express.static(path.join(__dirname,'public')));
 app.use('/',indexRoutes);
 app.use('/status',statusRoutes);

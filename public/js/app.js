@@ -2,9 +2,6 @@
     // ====================================================================
     // --- MEVCUT TOP15 SİSTEMİ ---
     // ====================================================================
-    const SUPABASE_URL = "http://127.0.0.1:55421";
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
-    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let db = [];
     const aylar = ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN", "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"];
@@ -69,7 +66,9 @@
             } catch(e) { localStorage.removeItem('archive_menu'); }
         }
         
-        const {data, error} = await client.from("weekly_top15").select("week_start,week_end").order("week_end", {ascending: false});
+        const response = await fetch('/api/archive/weeks');
+        const data = await response.json();
+        const error = response.ok ? null : data;
         
         if(error) {
             console.error("Supabase Error:", error);
@@ -133,7 +132,9 @@
             try { render(JSON.parse(cachedData)); } catch(e) {}
         }
 
-        const {data, error} = await client.from("weekly_top15").select("*").eq("week_start", wS.value).order("sira");
+        const response = await fetch(`/api/archive/week/${encodeURIComponent(wS.value)}`);
+        const data = await response.json();
+        const error = response.ok ? null : data;
         
         if(error) {
             showError("Veriler alınamadı, sunucu yoğun olabilir.");
@@ -273,10 +274,9 @@
         }
 
         // 2. AŞAMA: ARKA PLANDA SUPABASE'DEN GÜNCEL VERİ ÇEK (Revalidate)
-        const { data, error } = await client
-            .from("weekly_top15")
-            .select("nick, week_start, week_end")
-            .eq("sira", 1);
+        const response = await fetch('/api/archive/champions');
+        const data = await response.json();
+        const error = response.ok ? null : data;
             
         if(error) {
             if (!hasCache) {
